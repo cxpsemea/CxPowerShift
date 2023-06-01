@@ -173,6 +173,13 @@ function Remove-Project( $id ) {
     return $this.Cx1Delete( "projects/$id", "Failed to delete application" )
 }
 
+function Get-ProjectConfiguration( $id ) {
+	$params = @{
+		"project-id" = $id
+	}
+	return $this.Cx1Get( "configuration/project", $params, "Failed to get project configuration" )
+}
+
 function New-ScanGit {
     param(
         [Parameter(Mandatory=$true)][string]$projectID,
@@ -216,6 +223,9 @@ function Get-Scan($id) {
     return $this.Cx1Get("scans/$id", @{}, "Failed to get scan" )
 } 
 
+###########################
+# API-calls above this line
+###########################
 
 function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
     $uri = "$($iamurl)/auth/realms/$($tenant)/protocol/openid-connect/token"
@@ -266,6 +276,8 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetProjects" -Value ${function:Get-Projects}
         $client | Add-Member ScriptMethod -name "DeleteProject" -Value ${function:Remove-Project}
 
+        $client | Add-Member ScriptMethod -name "GetProjectConfiguration" -Value ${function:Get-ProjectConfiguration}
+
         $client | Add-Member ScriptMethod -name "RunGitScan" -Value ${function:New-ScanGit}
         $client | Add-Member ScriptMethod -name "GetScans" -Value ${function:Get-Scans}
         $client | Add-Member ScriptMethod -name "GetScan" -Value ${function:Get-Scan}
@@ -283,4 +295,19 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
     }
 }
 
+function Get-ConfigurationValue( $config, $key ) {
+    $config | foreach-object { 
+        if ( $_.key -eq $key -or $_.name -eq $key ) {
+            return $_.value
+        }
+    }
+    return ""
+}
+
+
+
+# functions to interact directly with the API will be exposed via the returned client object
 Export-ModuleMember -Function NewCx1Client
+
+# convenience functions to do stuff with the returned data will be exposed directly
+Export-ModuleMember -Function Get-ConfigurationValue
