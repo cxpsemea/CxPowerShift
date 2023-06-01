@@ -223,6 +223,24 @@ function Get-Scan($id) {
     return $this.Cx1Get("scans/$id", @{}, "Failed to get scan" )
 } 
 
+function Get-Presets() {
+    param(
+        [Parameter(Mandatory=$false)][int]$limit = 10,
+        [Parameter(Mandatory=$false)][int]$offset = 0,
+        [Parameter(Mandatory=$false)][bool]$exact = $false,
+        [Parameter(Mandatory=$false)][bool]$details = $false,
+        [Parameter(Mandatory=$false)][string]$name = ""
+    )
+	$params = @{
+		"offset" =  $offset
+		"limit" =           $limit
+		"exact_match"=     $exact
+		"include_details" = $details
+		"name" =            $name
+	}
+    return $this.Cx1Get( "presets", $params, "Failed to get presets" )
+}
+
 ###########################
 # API-calls above this line
 ###########################
@@ -277,6 +295,9 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "DeleteProject" -Value ${function:Remove-Project}
 
         $client | Add-Member ScriptMethod -name "GetProjectConfiguration" -Value ${function:Get-ProjectConfiguration}
+
+        $client | Add-Member ScriptMethod -name "GetPresets" -Value ${function:Get-Presets}
+        
 
         $client | Add-Member ScriptMethod -name "RunGitScan" -Value ${function:New-ScanGit}
         $client | Add-Member ScriptMethod -name "GetScans" -Value ${function:Get-Scans}
