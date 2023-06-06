@@ -26,6 +26,9 @@ function CompareNodes( $Cx1, $SAST ) {
 
 function UpdateCx1Finding( $Cx1, $SAST ) {
     $severity = $SAST.Severity.ToUpper()
+    if ( $severity -eq "INFORMATION" ) {
+        $severity = "INFO"
+    }
     $state = "TO_VERIFY"
     switch ($SAST.State) {
         1 { $state = "NOT_EXPLOITABLE" }
