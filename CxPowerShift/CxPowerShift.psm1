@@ -76,7 +76,7 @@ function makeURI( $base, [hashtable]$params ) {
 function Cx1Get {
     param(
         [Parameter(Mandatory=$true)][string]$api,
-        [Parameter(Mandatory=$false)][hashtable]$query,
+        [Parameter(Mandatory=$false)]$query,
         [Parameter(Mandatory=$false)][string]$errorMessage = "error getting $uri"
     )
     $uri = makeURI "$($this.Cx1URL)/api/$api" $query
@@ -93,7 +93,7 @@ function Cx1Delete {
 function Cx1Post {
     param(
         [Parameter(Mandatory=$true)][string]$api,
-        [Parameter(Mandatory=$false)][hashtable]$body,
+        [Parameter(Mandatory=$false)]$body,
         [Parameter(Mandatory=$false)][string]$errorMessage = "error posting $uri"
     )
     $uri = "$($this.Cx1URL)/api/$api"
@@ -223,6 +223,64 @@ function Get-Scan($id) {
     return $this.Cx1Get("scans/$id", @{}, "Failed to get scan" )
 } 
 
+function Get-Results() {
+    param(
+        [Parameter(Mandatory=$true)][string]$scanID,
+        [Parameter(Mandatory=$false)][int]$limit,
+        [Parameter(Mandatory=$false)][string]$severity = $null,
+        [Parameter(Mandatory=$false)][string]$state = $null,
+        [Parameter(Mandatory=$false)][string]$status = $null
+    )
+
+    $params = @{
+        "scan-id" =  $scanID
+		"limit" =    $limit
+		"state" =   @($state)
+		"severity" = @($severity)
+		"status" = @($status)
+    }
+
+    return $this.Cx1Get( "results", $params, "Failed to get results" )
+}
+
+function Add-ResultPredicate {
+    param(
+        [Parameter(Mandatory=$true)][string]$simID,
+        [Parameter(Mandatory=$true)][string]$projectID,
+        [Parameter(Mandatory=$true)][string]$severity, # HIGH, MEDIUM etc
+        [Parameter(Mandatory=$true)][string]$state, # TO_VERIFY, CONFIRMED etc
+        [Parameter(Mandatory=$false)][string]$comment = ""
+    )
+
+    $body = [array]@(@{
+        similarityId = $simID
+        projectId = $projectID
+        comment = $comment
+        severity = $severity
+        state = $state
+    })
+
+    return $this.Cx1Post( "sast-results-predicates/", $body, "failed to add results predicate" )
+}
+
+function Get-Presets() {
+    param(
+        [Parameter(Mandatory=$false)][int]$limit = 10,
+        [Parameter(Mandatory=$false)][int]$offset = 0,
+        [Parameter(Mandatory=$false)][bool]$exact = $false,
+        [Parameter(Mandatory=$false)][bool]$details = $false,
+        [Parameter(Mandatory=$false)][string]$name = ""
+    )
+	$params = @{
+		"offset" =  $offset
+		"limit" =           $limit
+		"exact_match"=     $exact
+		"include_details" = $details
+		"name" =            $name
+	}
+    return $this.Cx1Get( "presets", $params, "Failed to get presets" )
+}
+
 ###########################
 # API-calls above this line
 ###########################
@@ -278,10 +336,17 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
 
         $client | Add-Member ScriptMethod -name "GetProjectConfiguration" -Value ${function:Get-ProjectConfiguration}
 
+        $client | Add-Member ScriptMethod -name "GetPresets" -Value ${function:Get-Presets}
+        
+
         $client | Add-Member ScriptMethod -name "RunGitScan" -Value ${function:New-ScanGit}
         $client | Add-Member ScriptMethod -name "GetScans" -Value ${function:Get-Scans}
         $client | Add-Member ScriptMethod -name "GetScan" -Value ${function:Get-Scan}
         $client | Add-Member ScriptMethod -name "DeleteScan" -Value ${function:Remove-Scan}
+
+        $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
+
+        $client | Add-Member ScriptMethod -name "AddResultPredicate" -Value ${function:Add-ResultPredicate}
 
         return $client
     } catch {
