@@ -38,7 +38,7 @@ function UpdateCx1Finding( $Cx1, $SAST ) {
     }
 
     if ( -Not( $severity -imatch $Cx1.severity ) -or -Not( $state -imatch $Cx1.state ) ) {
-        Write-Host " - Updating cx1 finding: $($SAST.Language) - $($SAST.Group) - $($SAST.Name) [$($Cx1.similarityId)] in project $Cx1ProjectID"
+        Write-Host " - Updating Cx1 finding: $($SAST.Language) - $($SAST.Group) - $($SAST.Name) [$($Cx1.similarityId)] in project $Cx1ProjectID"
         $cx1client.AddResultPredicate( $Cx1.similarityId, $Cx1ProjectID, $severity, $state, $SAST.Comment )
         #Write-Host "`tSeverity: $severity"
         #Write-Host "`tState:    $state"
@@ -127,7 +127,7 @@ $report.CxXMLResults.Query | foreach-object {
     }
 }
 
-Write-Host "There were $($findings.length) findings parsed from the report"
+Write-Host "There were $($findings.length) findings parsed from $xmlreport"
 
 $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey $proxy
 
@@ -137,7 +137,7 @@ $Cx1ProjectID = $scan.metadata.project.id
 $resultCount = $cx1client.GetResults( $Cx1ScanID, 1 ).totalCount
 $results = $cx1client.GetResults( $Cx1ScanID, $resultCount ).results
 
-Write-Host "There are $($results.length) findings in Cx1`n"
+Write-Host "There are $($results.length) findings in Cx1 scan $Cx1ScanID`n"
 
 
 Write-Host "Comparing results:"
