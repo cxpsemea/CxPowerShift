@@ -206,13 +206,15 @@ function Get-Scans {
         [Parameter(Mandatory=$false)][int]$limit = 10,
         [Parameter(Mandatory=$false)][string]$projectID = "",
         [Parameter(Mandatory=$false)][string]$statuses = "",
-        [Parameter(Mandatory=$false)][string]$sort = "+created_at"
+        [Parameter(Mandatory=$false)][string]$sort = "+created_at",
+        [Parameter(Mandatory=$false)][int]$offset = 0
     )
     $params = @{
         limit = $limit
         name = $name
         "project-id" = $projectID
         sort = $sort
+        offset = $offset
     }
     return $this.Cx1Get("scans/", $params,  "Failed to get scans" )
 }
@@ -221,6 +223,10 @@ function Remove-Scan($id) {
 }
 function Get-Scan($id) {
     return $this.Cx1Get("scans/$id", @{}, "Failed to get scan" )
+} 
+
+function Get-ScanWorkflow($id) {
+    return $this.Cx1Get("scans/$id/workflow", @{}, "Failed to get scan workflow" )
 } 
 
 function Get-Results() {
@@ -343,6 +349,8 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetScans" -Value ${function:Get-Scans}
         $client | Add-Member ScriptMethod -name "GetScan" -Value ${function:Get-Scan}
         $client | Add-Member ScriptMethod -name "DeleteScan" -Value ${function:Remove-Scan}
+
+        $client | Add-Member ScriptMethod -name "GetScanWorkflow" -Value ${function:Get-ScanWorkflow}
 
         $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
 
