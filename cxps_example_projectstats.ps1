@@ -38,21 +38,32 @@ function getTimestamps( $workflow ) {
         Status = ""
         Start = $startTime
         SourcePulling = $zero #"fetch-sources-frankfurt started"
+        SourcePullingDelta = $zero
         Queued = $zero #"sast-rm-frankfurt Queued in sast resource manager"
+        QueuedDelta = $zero
         ScanStart = $zero #"sast-worker-frankfurt started"
+        ScanStartDelta = $zero
         ScanEnd = $zero #"sast-worker-frankfurt ended"
+        ScanEndDelta = $zero
         Finish = $zero #"Scan Completed"
+        FinishDelta = $zero
     }
 
     $workflow | foreach-object {
         $log = $_
 
+        $lastStage = "Start"
         $stages | foreach-object {
             $stage = $_
+            $delta = "$($stage)Delta"
             if ( $log.Info -match $regex[$stage] ) {
-                $time_offset = ([datetime]$log.Timestamp) - $startTime
-                $scaninfo[$stage] = $time_offset
+                $stampTime = [datetime]$log.Timestamp
+                $timeDelta = $stampTime - $scaninfo[$lastStage]
+                $scaninfo[$stage] = $stampTime
+                $scaninfo[$delta] = $timeDelta
             }
+            
+            $lastStage = $stage
         }        
     }
 
@@ -76,7 +87,7 @@ function GetProjectScanHistory( $Cx1ProjectID ) {
             $stamps.ProjectName = $_.projectName
             $stamps.ScanID = $_.id
             $stamps.Status = $_.status
-            Add-Content -Path $outputFile -Value "$($stamps.ProjectID);$($stamps.ProjectName);$($stamps.ScanID);$($stamps.Status);$($stamps.Start);$($stamps.SourcePulling);$($stamps.Queued);$($stamps.ScanStart);$($stamps.ScanEnd);$($stamps.Finish)"
+            Add-Content -Path $outputFile -Value "$($stamps.ProjectID);$($stamps.ProjectName);$($stamps.ScanID);$($stamps.Status);$($stamps.Start);$($stamps.SourcePulling);$($stamps.SourcePullingDelta);$($stamps.Queued);$($stamps.QueuedDelta);$($stamps.ScanStart);$($stamps.ScanStartDelta);$($stamps.ScanEnd);$($stamps.ScanEndDelta);$($stamps.Finish);$($stamps.FinishDelta);"
         }
     
         $offset += $scan_limit
@@ -84,7 +95,8 @@ function GetProjectScanHistory( $Cx1ProjectID ) {
     } until ( $offset -gt $scan_count )
 }
 
-Add-Content -Path $outputFile -Value "ProjectID;ProjectName;ScanID;Status;Start;Source Pulling;Queued;Scan Start;Scan End;Finish;"
+Add-Content -Path $outputFile -Value "sep=;"
+Add-Content -Path $outputFile -Value "ProjectID;ProjectName;ScanID;Status;Start;Source Pulling;SP Delta;Queued;Queue Delta;Scan Start;Start Delta;Scan End;End Delta;Finish;Finish Delta;"
 
 $projectIDList | foreach-object {
     GetProjectScanHistory $_
