@@ -72,6 +72,11 @@ function getTimestamps( $createdAt, $workflow ) {
     return $scaninfo
 }
 
+# To do:
+#   + LOC
+#   + FileCount
+#   + Preset
+#   + Incremental
 function GetProjectScanHistory( $Cx1ProjectID ) {
     $offset = 0
     $scan_count = [int]($cx1client.GetScans( 1, $Cx1ProjectID ).filteredTotalCount)
@@ -89,6 +94,7 @@ function GetProjectScanHistory( $Cx1ProjectID ) {
                 Write-Host "Processing project $Cx1ProjectID scan $($scan.id)"
             }
             $workflow = $cx1client.GetScanWorkflow( $scan.id )
+            $metadata = $cx1client.GetScanSASTMetadata( $scan.id )
             $stamps = getTimestamps $scan.createdAt $workflow
     
             $stamps.ProjectID = $Cx1ProjectID
@@ -97,7 +103,7 @@ function GetProjectScanHistory( $Cx1ProjectID ) {
             $stamps.Status = $scan.status
             $stamps.Finish = $scan.updatedAt
 
-            Add-Content -Path $outputFile -Value "$($stamps.ProjectID);$($stamps.ProjectName);$($stamps.ScanID);$($stamps.Status);$($stamps.Start);$($stamps.SourcePulling);$($stamps.Queued);$($stamps.ScanStart);$($stamps.ScanEnd);$($stamps.Finish)"
+            Add-Content -Path $outputFile -Value "$($stamps.ProjectID);$($stamps.ProjectName);$($stamps.ScanID);$($stamps.Status);$($metadata.loc);$($metadata.fileCount);$($metadata.isIncremental);$($metadata.queryPreset);$($stamps.Start);$($stamps.SourcePulling);$($stamps.Queued);$($stamps.ScanStart);$($stamps.ScanEnd);$($stamps.Finish)"
         }
     
         $offset += $scan_limit
@@ -106,7 +112,7 @@ function GetProjectScanHistory( $Cx1ProjectID ) {
 }
 
 if ( -Not $outputfileExists ) {
-    Add-Content -Path $outputFile -Value "ProjectID;ProjectName;ScanID;Status;Start;Source Pulling;Queued;Scan Start;Scan End;Finish"
+    Add-Content -Path $outputFile -Value "ProjectID;ProjectName;ScanID;Status;LOC;Files;Incremental;Preset;Start;Source Pulling;Queued;Scan Start;Scan End;Finish"
 }
 
 $projectIDList | foreach-object {
