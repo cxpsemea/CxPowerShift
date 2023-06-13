@@ -29,7 +29,6 @@ function log($message, $warning = $false) {
 
 function GetToken() {
     $uri = "$($this.IAMUrl)/auth/realms/$($this.Tenant)/protocol/openid-connect/token"
-    Write-Host "Token: $($this.Token)"
     $body = @{
         client_id = "ast-app"
         refresh_token = (Plaintext($this.APIKey))
@@ -265,6 +264,10 @@ function Get-ScanWorkflow($id) {
     return $this.Cx1Get("scans/$id/workflow", @{}, "Failed to get scan workflow" )
 } 
 
+function Get-ScanSASTMetadata($id) {
+    return $this.Cx1Get("sast-metadata/$id", @{}, "Failed to get scan sast metadata" )
+} 
+
 function Get-Results() {
     param(
         [Parameter(Mandatory=$true)][string]$scanID,
@@ -363,6 +366,8 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "DeleteScan" -Value ${function:Remove-Scan}
 
         $client | Add-Member ScriptMethod -name "GetScanWorkflow" -Value ${function:Get-ScanWorkflow}
+        $client | Add-Member ScriptMethod -name "GetScanSASTMetadata" -Value ${function:Get-ScanSASTMetadata}
+        
 
         $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
 
