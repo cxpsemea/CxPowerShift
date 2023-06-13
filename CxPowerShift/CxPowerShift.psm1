@@ -11,6 +11,7 @@
    # Use the client to do things
    $projects = $cx1Client.Get-Projects
 #>
+
 # Get timestamp for Logs
 function getTime() {
     return "[{0:MM/dd/yyyy} {0:HH:mm:ss.fff K}]" -f (Get-Date)
@@ -26,7 +27,42 @@ function log($message, $warning = $false) {
     }
 }
 
-function req($uri, $method, $token, $errorMessage, $body, $proxy){
+function GetToken() {
+    $uri = "$($this.IAMUrl)/auth/realms/$($this.Tenant)/protocol/openid-connect/token"
+    Write-Host "Token: $($this.Token)"
+    $body = @{
+        client_id = "ast-app"
+        refresh_token = (Plaintext($this.APIKey))
+        grant_type = "refresh_token"
+    } 
+    try  {
+        $resp = $null
+        if ( $this.Proxy -eq "" ) {
+            $resp = Invoke-RestMethod -uri $uri -method "POST" -body $body 
+        } else {
+            $resp = Invoke-RestMethod -uri $uri -method "POST" -body $body -Proxy $this.Proxy
+        }
+
+        $this.Token = ConvertTo-SecureString $resp.access_token -AsPlainText -Force
+        $this.Expiry = (Get-Date).AddSeconds( $resp.expires_in )
+    } catch {
+        log $_
+        $value = $_.Exception.Response.StatusCode.value__
+        $description = $_.Exception.Response.StatusDescription
+        log "StatusCode: ${value}" 
+        log "StatusDescription: ${description}" 
+        log "Request body was: $($body | ConvertTo-Json)"
+        throw $errorMessage
+    }
+}
+
+function req($uri, $method, $client, $errorMessage, $body, $proxy){
+
+    if ( $client.Expiry -lt (Get-Date) ) {
+        $client.GetToken() # hopefully auto-refresh?
+    }
+    $token = (Plaintext($client.Token))
+
     $headers = @{
         Authorization = "Bearer $token"
         "Content-Type" = "application/json;v=1.0"
@@ -80,7 +116,7 @@ function Cx1Get {
         [Parameter(Mandatory=$false)][string]$errorMessage = "error getting $uri"
     )
     $uri = makeURI "$($this.Cx1URL)/api/$api" $query
-    return req $uri "GET" (Plaintext($this.Token)) $errorMessage "" $this.Proxy
+    return req $uri "GET" $this $errorMessage "" $this.Proxy
 }
 function Cx1Delete {
     param(
@@ -88,7 +124,7 @@ function Cx1Delete {
         [Parameter(Mandatory=$false)][string]$errorMessage = "error deleting $uri"
     )
     $uri = "$($this.Cx1URL)/api/$api"
-    return req $uri "DELETE" (Plaintext($this.Token)) $errorMessage "" $this.Proxy
+    return req $uri "DELETE" $this $errorMessage "" $this.Proxy
 }
 function Cx1Post {
     param(
@@ -97,7 +133,7 @@ function Cx1Post {
         [Parameter(Mandatory=$false)][string]$errorMessage = "error posting $uri"
     )
     $uri = "$($this.Cx1URL)/api/$api"
-    return req $uri "POST" (Plaintext($this.Token)) $errorMessage $body $this.Proxy
+    return req $uri "POST" $this $errorMessage $body $this.Proxy
 }
 
 
@@ -292,42 +328,18 @@ function Get-Presets() {
 ###########################
 
 function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
-    $uri = "$($iamurl)/auth/realms/$($tenant)/protocol/openid-connect/token"
-    $body = @{
-        client_id = "ast-app"
-        refresh_token = $apikey
-        grant_type = "refresh_token"
-    } 
     try  {
-        $resp = $null
-        if ( $proxy -eq "" ) {
-            $resp = Invoke-RestMethod -uri $uri -method "POST" -body $body 
-        } else {
-            add-type @"
-    using System.Net;
-    using System.Security.Cryptography.X509Certificates;
-    public class TrustAllCertsPolicy : ICertificatePolicy {
-        public bool CheckValidationResult(
-            ServicePoint srvPoint, X509Certificate certificate,
-            WebRequest request, int certificateProblem) {
-            return true;
-        }
-    }
-"@
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-
-            $resp = Invoke-RestMethod -uri $uri -method "POST" -body $body -Proxy $proxy
-        }
-
         $client = [PSCustomObject]@{
             Cx1URL = $cx1url
             IAMURL = $iamurl
             Tenant = $tenant
             APIKey = ConvertTo-SecureString $apikey -AsPlainText -Force 
-            Token = ConvertTo-SecureString $resp.access_token -AsPlainText -Force
+            Token = (New-Object System.Security.SecureString)
             Proxy = $proxy
+            Expiry = (Get-Date)
         }
 
+        $client | Add-Member ScriptMethod -name "GetToken" -Value ${function:GetToken} -Force
         $client | Add-Member ScriptMethod -name "ToString" -Value ${function:ClientToString} -Force
         $client | Add-Member ScriptMethod -name "Cx1Get" -Value ${function:Cx1Get}
         $client | Add-Member ScriptMethod -name "Cx1Delete" -Value ${function:Cx1Delete}
@@ -356,15 +368,11 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
 
         $client | Add-Member ScriptMethod -name "AddResultPredicate" -Value ${function:Add-ResultPredicate}
 
+        $client.GetToken()
+
         return $client
     } catch {
         log $_
-        $value = $_.Exception.Response.StatusCode.value__
-        $description = $_.Exception.Response.StatusDescription
-        log "StatusCode: ${value}" 
-        log "StatusDescription: ${description}" 
-        log "Request body was: $($body | ConvertTo-Json)"
-        throw $errorMessage
     }
 }
 
