@@ -201,7 +201,9 @@ function Get-Projects {
     )
     $params = @{
         limit = $limit
-        name = $name
+    }
+    if ( $name -ne "" ) {
+        $params.Add( "name", $name )
     }
     return $this.Cx1Get("projects/", $params,  "Failed to get projects" )
 }
@@ -246,12 +248,13 @@ function Get-Scans {
         [Parameter(Mandatory=$false)][int]$offset = 0
     )
     $params = @{
-        limit = $limit
-        "project-id" = $projectID
-        statuses = $statuses
         sort = $sort
+        limit = $limit
         offset = $offset
     }
+
+    if ( $projectID -ne "" ) { $params.Add( "project-id", $projectID ) }
+    if ( $statuses -ne "" ) { $params.Add( "statuses", $statuses) }
     return $this.Cx1Get("scans/", $params,  "Failed to get scans" )
 }
 function Remove-Scan($id) {
