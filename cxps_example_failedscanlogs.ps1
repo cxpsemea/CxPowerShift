@@ -31,6 +31,7 @@ do {
         $scanSummary = [pscustomobject]@{
             ProjectID = $scan.projectId
             ProjectName = $scan.projectName
+            ScanID = $scan.id
             CreatedAt = $scan.createdAt
             FailedAt = $scan.updatedAt
             LastWorkflow = ""
@@ -103,6 +104,6 @@ do {
     $offset += $scan_limit
 } until ( $offset -ge $totalFailedScans )
 
-$summary | export-csv "Cx1 failed scans summary.csv"
+$summary | export-csv "Cx1 failed scans summary.csv" -NoTypeInformation
 
 Remove-Module CxPowerShift
