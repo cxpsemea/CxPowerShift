@@ -45,7 +45,7 @@ function GetToken() {
         $this.Token = ConvertTo-SecureString $resp.access_token -AsPlainText -Force
         $this.Expiry = (Get-Date).AddSeconds( $resp.expires_in )
     } catch {
-        log $_
+        log $_ $true
         $value = $_.Exception.Response.StatusCode.value__
         $description = $_.Exception.Response.StatusDescription
         log "StatusCode: ${value}" 
@@ -246,8 +246,8 @@ function Get-Scans {
     )
     $params = @{
         limit = $limit
-        name = $name
         "project-id" = $projectID
+        statuses = $statuses
         sort = $sort
         offset = $offset
     }
@@ -267,6 +267,10 @@ function Get-ScanWorkflow($id) {
 function Get-ScanSASTMetadata($id) {
     return $this.Cx1Get("sast-metadata/$id", @{}, "Failed to get scan sast metadata" )
 } 
+
+function Get-ScanSASTEngineLog($id) {
+    return $this.Cx1Get("logs/$id/sast", @{}, "Failed to get scan sast enginelogs" )
+}
 
 function Get-Results() {
     param(
@@ -367,6 +371,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
 
         $client | Add-Member ScriptMethod -name "GetScanWorkflow" -Value ${function:Get-ScanWorkflow}
         $client | Add-Member ScriptMethod -name "GetScanSASTMetadata" -Value ${function:Get-ScanSASTMetadata}
+        $client | Add-Member ScriptMethod -name "GetScanSASTEngineLog" -Value ${function:Get-ScanSASTEngineLog}
         
 
         $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
