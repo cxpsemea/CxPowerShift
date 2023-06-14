@@ -79,7 +79,7 @@ do {
 
             Write-Host "`tCreated $($scan.id)-integrationslog.csv"
         } catch {
-            Write-Warning "Failed to get/store workflow for scan $($scan.id)"
+            Write-Warning "Failed to get/store integration log for scan $($scan.id)"
         }
 
         try {
