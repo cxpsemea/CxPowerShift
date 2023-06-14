@@ -267,6 +267,10 @@ function Get-ScanWorkflow($id) {
     return $this.Cx1Get("scans/$id/workflow", @{}, "Failed to get scan workflow" )
 } 
 
+function Get-ScanIntegrationsLog($id) {
+    return $this.Cx1Get("integrations-logs/$id", @{}, "Failed to get scan integrations log" )
+} 
+
 function Get-ScanSASTMetadata($id) {
     return $this.Cx1Get("sast-metadata/$id", @{}, "Failed to get scan sast metadata" )
 } 
@@ -393,6 +397,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "DeleteScan" -Value ${function:Remove-Scan}
 
         $client | Add-Member ScriptMethod -name "GetScanWorkflow" -Value ${function:Get-ScanWorkflow}
+        $client | Add-Member ScriptMethod -name "GetScanIntegrationsLog" -Value ${function:Get-ScanIntegrationsLog}
         $client | Add-Member ScriptMethod -name "GetScanSASTMetadata" -Value ${function:Get-ScanSASTMetadata}
         $client | Add-Member ScriptMethod -name "GetScanSASTEngineLog" -Value ${function:Get-ScanSASTEngineLog}
         
