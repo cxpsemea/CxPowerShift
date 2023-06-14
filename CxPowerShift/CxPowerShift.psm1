@@ -173,8 +173,8 @@ function Get-Applications {
     )
     $params = @{
         limit = $limit
-        name = $name
     }
+    if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get("applications/", $params,  "Failed to get applications" )
 }
 function Remove-Application( $id ) {
@@ -202,9 +202,7 @@ function Get-Projects {
     $params = @{
         limit = $limit
     }
-    if ( $name -ne "" ) {
-        $params.Add( "name", $name )
-    }
+    if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get("projects/", $params,  "Failed to get projects" )
 }
 function Remove-Project( $id ) {
@@ -255,6 +253,7 @@ function Get-Scans {
 
     if ( $projectID -ne "" ) { $params.Add( "project-id", $projectID ) }
     if ( $statuses -ne "" ) { $params.Add( "statuses", $statuses) }
+
     return $this.Cx1Get("scans/", $params,  "Failed to get scans" )
 }
 function Remove-Scan($id) {
@@ -279,19 +278,19 @@ function Get-ScanSASTEngineLog($id) {
 function Get-Results() {
     param(
         [Parameter(Mandatory=$true)][string]$scanID,
-        [Parameter(Mandatory=$false)][int]$limit,
-        [Parameter(Mandatory=$false)][string]$severity = $null,
-        [Parameter(Mandatory=$false)][string]$state = $null,
-        [Parameter(Mandatory=$false)][string]$status = $null
+        [Parameter(Mandatory=$false)][int]$limit = 10,
+        [Parameter(Mandatory=$false)][array]$severity = @(),
+        [Parameter(Mandatory=$false)][array]$state = @(),
+        [Parameter(Mandatory=$false)][array]$status = @()
     )
 
     $params = @{
         "scan-id" =  $scanID
 		"limit" =    $limit
-		"state" =   @($state)
-		"severity" = @($severity)
-		"status" = @($status)
     }
+    if ( $state.Length -gt 0 ) { $params.Add( "state", $state ) }
+    if ( $severity.Length -gt 0 ) { $params.Add( "severity", $severity ) }
+    if ( $status.Length -gt 0 ) { $params.Add( "status", $status ) }
 
     return $this.Cx1Get( "results", $params, "Failed to get results" )
 }
@@ -329,8 +328,8 @@ function Get-Presets() {
 		"limit" =           $limit
 		"exact_match"=     $exact
 		"include_details" = $details
-		"name" =            $name
 	}
+    if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get( "presets", $params, "Failed to get presets" )
 }
 
@@ -353,6 +352,21 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
             Proxy = $proxy
             Expiry = (Get-Date)
             ShowErrors = $true
+        }
+
+        if ( $proxy -ne "" ) {
+            add-type @"
+    using System.Net;
+    using System.Security.Cryptography.X509Certificates;
+    public class TrustAllCertsPolicy : ICertificatePolicy {
+        public bool CheckValidationResult(
+            ServicePoint srvPoint, X509Certificate certificate,
+            WebRequest request, int certificateProblem) {
+            return true;
+        }
+    }
+"@
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
         }
 
         $client | Add-Member ScriptMethod -name "GetToken" -Value ${function:GetToken} -Force
