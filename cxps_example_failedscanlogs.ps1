@@ -9,6 +9,7 @@ Import-Module .\CxPowerShift
 
 $scan_limit = 10
 $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" #"http://localhost:8080"
+$cx1client.SetShowErrors($false)
 
 If (-not(Test-Path -Path "out") ) {
     Write-Host "Creating output directory 'out'"
@@ -21,6 +22,7 @@ $totalFailedScans = $cx1client.GetScans(0,"","Failed","+created_at",0).filteredT
 
 $offset = 0
 do {
+    Write-Host "Getting failed scans $offset - $($offset+$scan_limit) out of $totalFailedScans"
     $scans = $cx1client.GetScans($scan_limit,"","Failed","+created_at",$offset).scans
     
     foreach ( $scan in $scans ) {

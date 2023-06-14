@@ -50,7 +50,6 @@ function GetToken() {
         $description = $_.Exception.Response.StatusDescription
         log "StatusCode: ${value}" 
         log "StatusDescription: ${description}" 
-        log "Request body was: $($body | ConvertTo-Json)"
         throw $errorMessage
     }
 }
@@ -84,11 +83,13 @@ function req($uri, $method, $client, $errorMessage, $body, $proxy){
         }
         return $resp
     } catch {
-        log -message $_  -warning $true
-        $value = $_.Exception.Response.StatusCode.value__
-        $description = $_.Exception.Response.StatusDescription
-        log "HTTP ${value} - $uri - StatusDescription: ${description}" $true
-        log "Request body was: $($body | ConvertTo-Json)"
+        if ( $client.ShowErrors ) {
+            log -message $_  -warning $true
+            $value = $_.Exception.Response.StatusCode.value__
+            $description = $_.Exception.Response.StatusDescription
+            log "HTTP ${value} - $uri - StatusDescription: ${description}" $true
+            log "Request body was: $($body | ConvertTo-Json)"
+        }
         throw $errorMessage
     }
 }
@@ -330,6 +331,10 @@ function Get-Presets() {
     return $this.Cx1Get( "presets", $params, "Failed to get presets" )
 }
 
+function Set-ShowErrors( $show ) {
+    $this.ShowErrors = $show
+}
+
 ###########################
 # API-calls above this line
 ###########################
@@ -344,6 +349,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
             Token = (New-Object System.Security.SecureString)
             Proxy = $proxy
             Expiry = (Get-Date)
+            ShowErrors = $true
         }
 
         $client | Add-Member ScriptMethod -name "GetToken" -Value ${function:GetToken} -Force
@@ -377,6 +383,8 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
 
         $client | Add-Member ScriptMethod -name "AddResultPredicate" -Value ${function:Add-ResultPredicate}
+
+        $client | Add-Member ScriptMethod -name "SetShowErrors" -Value ${function:Set-ShowErrors}
 
         $client.GetToken()
 
