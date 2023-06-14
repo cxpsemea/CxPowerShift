@@ -43,14 +43,13 @@ function GetToken() {
         }
 
         $this.Token = ConvertTo-SecureString $resp.access_token -AsPlainText -Force
-        $this.Expiry = (Get-Date).AddSeconds( $resp.expires_in )
+        $this.Expiry = (Get-Date).AddSeconds( $resp.expires_in - 60 ) # let's refresh the token a minute early
     } catch {
-        log $_
+        log $_ $true
         $value = $_.Exception.Response.StatusCode.value__
         $description = $_.Exception.Response.StatusDescription
         log "StatusCode: ${value}" 
         log "StatusDescription: ${description}" 
-        log "Request body was: $($body | ConvertTo-Json)"
         throw $errorMessage
     }
 }
@@ -84,11 +83,13 @@ function req($uri, $method, $client, $errorMessage, $body, $proxy){
         }
         return $resp
     } catch {
-        log -message $_  -warning $true
-        $value = $_.Exception.Response.StatusCode.value__
-        $description = $_.Exception.Response.StatusDescription
-        log "HTTP ${value} - $uri - StatusDescription: ${description}" $true
-        log "Request body was: $($body | ConvertTo-Json)"
+        if ( $client.ShowErrors ) {
+            log -message $_  -warning $true
+            $value = $_.Exception.Response.StatusCode.value__
+            $description = $_.Exception.Response.StatusDescription
+            log "HTTP ${value} - $uri - StatusDescription: ${description}" $true
+            log "Request body was: $($body | ConvertTo-Json)"
+        }
         throw $errorMessage
     }
 }
@@ -246,8 +247,8 @@ function Get-Scans {
     )
     $params = @{
         limit = $limit
-        name = $name
         "project-id" = $projectID
+        statuses = $statuses
         sort = $sort
         offset = $offset
     }
@@ -267,6 +268,10 @@ function Get-ScanWorkflow($id) {
 function Get-ScanSASTMetadata($id) {
     return $this.Cx1Get("sast-metadata/$id", @{}, "Failed to get scan sast metadata" )
 } 
+
+function Get-ScanSASTEngineLog($id) {
+    return $this.Cx1Get("logs/$id/sast", @{}, "Failed to get scan sast enginelogs" )
+}
 
 function Get-Results() {
     param(
@@ -326,6 +331,10 @@ function Get-Presets() {
     return $this.Cx1Get( "presets", $params, "Failed to get presets" )
 }
 
+function Set-ShowErrors( $show ) {
+    $this.ShowErrors = $show
+}
+
 ###########################
 # API-calls above this line
 ###########################
@@ -340,6 +349,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
             Token = (New-Object System.Security.SecureString)
             Proxy = $proxy
             Expiry = (Get-Date)
+            ShowErrors = $true
         }
 
         $client | Add-Member ScriptMethod -name "GetToken" -Value ${function:GetToken} -Force
@@ -367,11 +377,14 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
 
         $client | Add-Member ScriptMethod -name "GetScanWorkflow" -Value ${function:Get-ScanWorkflow}
         $client | Add-Member ScriptMethod -name "GetScanSASTMetadata" -Value ${function:Get-ScanSASTMetadata}
+        $client | Add-Member ScriptMethod -name "GetScanSASTEngineLog" -Value ${function:Get-ScanSASTEngineLog}
         
 
         $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
 
         $client | Add-Member ScriptMethod -name "AddResultPredicate" -Value ${function:Add-ResultPredicate}
+
+        $client | Add-Member ScriptMethod -name "SetShowErrors" -Value ${function:Set-ShowErrors}
 
         $client.GetToken()
 

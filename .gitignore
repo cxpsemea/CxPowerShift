@@ -3,3 +3,4 @@ test*.ps1
 *.xml
 *.csv
 *.txt
+out
