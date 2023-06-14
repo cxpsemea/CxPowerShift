@@ -10,7 +10,7 @@ Import-Module .\CxPowerShift
 
 $projectIDList = (get-content $projectsFile)
 $scan_limit = 10
-$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" #"http://localhost:8080"
+$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "http://localhost:8080"
 $outputFile = "Cx1 project scans history.csv"
 $outputfileExists = $false
 
