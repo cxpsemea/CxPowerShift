@@ -40,6 +40,19 @@ do {
         }
 
         try {
+            $workflow = $cx1client.GetScanIntegrationsLog( $scan.id )
+
+            $outputFile = ".\out\$($scan.id)-integrationslog.csv"
+            If (Test-Path -Path $outputFile) {
+                Remove-Item -Path $outputFile -Force
+            }
+            $workflow | Export-Csv -Path $outputFile -NoTypeInformation
+            Write-Host "`tCreated $($scan.id)-integrationslog.csv"
+        } catch {
+            Write-Warning "Failed to get/store workflow for scan $($scan.id)"
+        }
+
+        try {
             $engineLog = $cx1client.GetScanSASTEngineLog( $scan.id )
             $outputFile = ".\out\$($scan.id)-sastlog.txt"
             If (Test-Path -Path $outputFile) {
