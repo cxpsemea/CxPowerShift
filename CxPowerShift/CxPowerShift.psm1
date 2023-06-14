@@ -43,7 +43,7 @@ function GetToken() {
         }
 
         $this.Token = ConvertTo-SecureString $resp.access_token -AsPlainText -Force
-        $this.Expiry = (Get-Date).AddSeconds( $resp.expires_in )
+        $this.Expiry = (Get-Date).AddSeconds( $resp.expires_in - 60 ) # let's refresh the token a minute early
     } catch {
         log $_ $true
         $value = $_.Exception.Response.StatusCode.value__
