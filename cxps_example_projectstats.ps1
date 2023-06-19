@@ -89,21 +89,21 @@ function GetProjectScanHistory( $Cx1ProjectID ) {
         foreach( $scan in $scans.scans) {
             if ( $scan.id -eq $lastProjectScan[$Cx1ProjectID] ) {
                 Write-Host "Project $Cx1ProjectID scan $($scan.id) already in excel - skipping remaining scans"
-                return 
             } else {
                 Write-Host "Processing project $Cx1ProjectID scan $($scan.id)"
-            }
-            $workflow = $cx1client.GetScanWorkflow( $scan.id )
-            $metadata = $cx1client.GetScanSASTMetadata( $scan.id )
-            $stamps = getTimestamps $scan.createdAt $workflow
-    
-            $stamps.ProjectID = $Cx1ProjectID
-            $stamps.ProjectName = $scan.projectName
-            $stamps.ScanID = $scan.id
-            $stamps.Status = $scan.status
-            $stamps.Finish = $scan.updatedAt
+            
+                $workflow = $cx1client.GetScanWorkflow( $scan.id )
+                $metadata = $cx1client.GetScanSASTMetadata( $scan.id )
+                $stamps = getTimestamps $scan.createdAt $workflow
+        
+                $stamps.ProjectID = $Cx1ProjectID
+                $stamps.ProjectName = $scan.projectName
+                $stamps.ScanID = $scan.id
+                $stamps.Status = $scan.status
+                $stamps.Finish = $scan.updatedAt
 
-            Add-Content -Path $outputFile -Value "$($stamps.ProjectID);$($stamps.ProjectName);$($stamps.ScanID);$($stamps.Status);$($metadata.loc);$($metadata.fileCount);$($metadata.isIncremental);$($metadata.queryPreset);$($stamps.Start);$($stamps.SourcePulling);$($stamps.Queued);$($stamps.ScanStart);$($stamps.ScanEnd);$($stamps.Finish)"
+                Add-Content -Path $outputFile -Value "$($stamps.ProjectID);$($stamps.ProjectName);$($stamps.ScanID);$($stamps.Status);$($metadata.loc);$($metadata.fileCount);$($metadata.isIncremental);$($metadata.queryPreset);$($stamps.Start);$($stamps.SourcePulling);$($stamps.Queued);$($stamps.ScanStart);$($stamps.ScanEnd);$($stamps.Finish)"
+            }
         }
     
         $offset += $scan_limit

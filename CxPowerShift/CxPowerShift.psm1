@@ -136,6 +136,15 @@ function Cx1Post {
     return req $uri "POST" $this $errorMessage $body $this.Proxy
 }
 
+function Cx1Patch {
+    param(
+        [Parameter(Mandatory=$true)][string]$api,
+        [Parameter(Mandatory=$false)]$body,
+        [Parameter(Mandatory=$false)][string]$errorMessage = "error posting $uri"
+    )
+    $uri = "$($this.Cx1URL)/api/$api"
+    return req $uri "PATCH" $this $errorMessage $body $this.Proxy
+}
 
 function shorten($str) {
     return $str.Substring(0,4) +".."+ $str.Substring($str.length - 4)
@@ -259,6 +268,14 @@ function Get-Scans {
 function Remove-Scan($id) {
     return $this.Cx1Delete("scans/$id",  "Failed to get scans" )
 }
+
+function Cancel-Scan($id) {
+    $params = @{
+        status = "Canceled"
+    }
+    return $this.Cx1Patch( "scans/$id", $params, "Failed to cancel scan" )
+}
+
 function Get-Scan($id) {
     return $this.Cx1Get("scans/$id", @{}, "Failed to get scan" )
 } 
@@ -378,6 +395,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "Cx1Get" -Value ${function:Cx1Get}
         $client | Add-Member ScriptMethod -name "Cx1Delete" -Value ${function:Cx1Delete}
         $client | Add-Member ScriptMethod -name "Cx1Post" -Value ${function:Cx1Post}
+        $client | Add-Member ScriptMethod -name "Cx1Patch" -Value ${function:Cx1Patch}
         $client | Add-Member ScriptMethod -name "CreateApplication" -Value ${function:New-Application}
         $client | Add-Member ScriptMethod -name "GetApplications" -Value ${function:Get-Applications}
         $client | Add-Member ScriptMethod -name "DeleteApplication" -Value ${function:Remove-Application}
@@ -395,6 +413,8 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetScans" -Value ${function:Get-Scans}
         $client | Add-Member ScriptMethod -name "GetScan" -Value ${function:Get-Scan}
         $client | Add-Member ScriptMethod -name "DeleteScan" -Value ${function:Remove-Scan}
+        $client | Add-Member ScriptMethod -name "CancelScan" -Value ${function:Cancel-Scan}
+        
 
         $client | Add-Member ScriptMethod -name "GetScanWorkflow" -Value ${function:Get-ScanWorkflow}
         $client | Add-Member ScriptMethod -name "GetScanIntegrationsLog" -Value ${function:Get-ScanIntegrationsLog}
