@@ -16,10 +16,10 @@ $scan_limit = 20
 $totalQueuedScans = $cx1client.GetScans(0,"","Queued","+created_at",0).filteredTotalCount
 Write-Host "There are $totalQueuedScans scans Queued"
 
-$offset = 0
+$count = 0
 
 do {
-  $scans = $cx1client.GetScans($scan_limit,"","Queued","+created_at",$offset).scans
+  $scans = $cx1client.GetScans($scan_limit,"","Queued","+created_at",0).scans
   
   foreach ( $scan in $scans ) {
     Write-Host "Canceling scan $($scan.id)"
@@ -30,8 +30,8 @@ do {
     }
   }
 
-  $offset += $scan_limit
-} until ( $offset -ge $totalQueuedScans )
+  $count += $scans.Length
+} until ( $count -ge $totalQueuedScans )
 
 
 Remove-Module CxPowerShift
