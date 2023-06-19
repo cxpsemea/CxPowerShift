@@ -13,21 +13,25 @@ $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey ""
 Write-Host ($cx1client.ToString())
 
 $scan_limit = 20
-$scans = $cx1client.GetScans(0,"","Queued","+created_at",0).filteredTotalCount
+$totalQueuedScans = $cx1client.GetScans(0,"","Queued","+created_at",0).filteredTotalCount
+Write-Host "There are $scans_count scans Queued"
+
 $offset = 0
 
 do {
   $scans = $cx1client.GetScans($scan_limit,"","Queued","+created_at",$offset).scans
+  
   foreach ( $scan in $scans ) {
+    Write-Host "Canceling scan $($scan.id)"
     try {
       $cx1client.CancelScan($scan.id)
     } catch {
-      Write-Warning "Failed to cancel $($scan.id)"
+      Write-Host "Failed to cancel scan $($scan.id)"
     }
   }
 
   $offset += $scan_limit
-} until ( $offset -ge $totalFailedScans )
+} until ( $offset -ge $totalQueuedScans )
 
 
 Remove-Module CxPowerShift
