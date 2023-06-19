@@ -273,7 +273,7 @@ function Cancel-Scan($id) {
     $params = @{
         status = "Canceled"
     }
-    return $this.Cx1Patch( "scans/$id", $params, "Failed to cancel scan"
+    return $this.Cx1Patch( "scans/$id", $params, "Failed to cancel scan" )
 }
 
 function Get-Scan($id) {
