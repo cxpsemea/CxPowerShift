@@ -14,7 +14,7 @@ Write-Host ($cx1client.ToString())
 
 $scan_limit = 20
 $totalQueuedScans = $cx1client.GetScans(0,"","Queued","+created_at",0).filteredTotalCount
-Write-Host "There are $scans_count scans Queued"
+Write-Host "There are $totalQueuedScans scans Queued"
 
 $offset = 0
 
