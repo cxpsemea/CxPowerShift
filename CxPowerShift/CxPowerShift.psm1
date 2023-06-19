@@ -395,6 +395,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "Cx1Get" -Value ${function:Cx1Get}
         $client | Add-Member ScriptMethod -name "Cx1Delete" -Value ${function:Cx1Delete}
         $client | Add-Member ScriptMethod -name "Cx1Post" -Value ${function:Cx1Post}
+        $client | Add-Member ScriptMethod -name "Cx1Patch" -Value ${function:Cx1Patch}
         $client | Add-Member ScriptMethod -name "CreateApplication" -Value ${function:New-Application}
         $client | Add-Member ScriptMethod -name "GetApplications" -Value ${function:Get-Applications}
         $client | Add-Member ScriptMethod -name "DeleteApplication" -Value ${function:Remove-Application}
