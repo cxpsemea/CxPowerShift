@@ -20,7 +20,6 @@ $projectIDList = (get-content $projectsFile)
 $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
 $outputFile = "Cx1 project scans history.csv"
 $scan_limit = 10
-$writeHeaders = $true
 
 $stages = @( "Queued", "Running", "SourcePulling", "ScanQueued", "ScanStart", "ScanEnd" )
 
@@ -46,11 +45,9 @@ If (Test-Path -Path $outputFile) {
             $lastProjectScan[$lastPID] = $_.ScanID
         }
     }
-
-    $writeHeaders = $false
 }
 
-function getTimestamps( $createdAt, $workflow ) {
+function getScanInfo( $createdAt, $workflow ) {
     $startTime = [datetime]$createdAt
     $zero = New-TimeSpan -Seconds 0
 
@@ -108,42 +105,41 @@ function GetProjectScanHistory( $Cx1ProjectID, $startTime ) {
                 Write-Host "Processing project $Cx1ProjectID scan $($scan.id)"
             
                 $workflow = $cx1client.GetScanWorkflow( $scan.id )
-                $stamps = getTimestamps $scan.createdAt $workflow
+                $scanInfo = getScanInfo $scan.createdAt $workflow
 
                 try {
                     $metadata = $cx1client.GetScanSASTMetadata( $scan.id )
-                    $stamps.LOC = $metadata.loc
-                    $stamps.FileCount = $metadata.fileCount
-                    $stamps.Incremental = $metadata.isIncremental
-                    $stamps.Preset = $metadata.queryPreset
+                    $scanInfo.LOC = $metadata.loc
+                    $scanInfo.FileCount = $metadata.fileCount
+                    $scanInfo.Incremental = $metadata.isIncremental
+                    $scanInfo.Preset = $metadata.queryPreset
                 } catch {
                     Write-Warning "Failed to get metadata for scan $($scan.id): $_"
                 }
                 
                 if ( $scan.status -eq "Failed" ) {
-                    $stamps.FailReason = "zeebe" # default fail reason
+                    $scanInfo.FailReason = "zeebe" # default fail reason
                     if ( $null -ne $scan.statusDetails ) {
                         foreach ( $reason in $scan.statusDetails ) {
                             if ( $reason.name -eq "sast" ) {
                                 if ( $reason.status -eq "failed" ) {
-                                    $scan.FailReason = $reason.details
+                                    $scanInfo.FailReason = $reason.details
                                 }
                             }
                         }
                     }
                 }
         
-                $stamps.ProjectID = $Cx1ProjectID
-                $stamps.ProjectName = $scan.projectName
-                $stamps.ScanID = $scan.id
-                $stamps.Status = $scan.status
-                $stamps.Finish = $scan.updatedAt
+                $scanInfo.ProjectID = $Cx1ProjectID
+                $scanInfo.ProjectName = $scan.projectName
+                $scanInfo.ScanID = $scan.id
+                $scanInfo.Status = $scan.status
+                $scanInfo.Finish = $scan.updatedAt
 
-                if ($writeHeaders) {
-                    Export-Csv -Path $outputFile -InputObject $stamps -NoTypeInformation
-                    $writeHeaders = $false
+                if (Test-Path -Path $outputFile) {
+                    Export-Csv -Path $outputFile -InputObject $scanInfo -NoTypeInformation -Append
                 } else {
-                    Export-Csv -Path $outputFile -InputObject $stamps -NoTypeInformation -Append
+                    Export-Csv -Path $outputFile -InputObject $scanInfo -NoTypeInformation
                 }
 
                 #Add-Content -Path $outputFile -Value "$($stamps.ProjectID);$($stamps.ProjectName);$($stamps.ScanID);$($stamps.Status);$failReason;$($metadata.loc);$($metadata.fileCount);$($metadata.isIncremental);$($metadata.queryPreset);$($stamps.Start);$($stamps.Queued);$($stamps.SourcePulling);$($stamps.ScanQueued);$($stamps.ScanStart);$($stamps.ScanEnd);$($stamps.Finish)"
