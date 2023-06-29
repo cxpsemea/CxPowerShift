@@ -1,5 +1,6 @@
 param(
-    $projectsFile,
+    $projectID,
+    $lastScanID,
     $cx1url,
     $iamurl,
     $tenant,
@@ -16,7 +17,6 @@ if ( $since -ne "" ) {
 }
 Write-Host "Filtering for scans since $startTime"
 
-$projectIDList = (get-content $projectsFile)
 $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
 $outputFile = "Cx1 project scans history.csv"
 $scan_limit = 10
@@ -32,23 +32,6 @@ $regex = @{
     ScanEnd = "sast-worker-.* ended"
 }
 
-
-$lastProjectScan = @{}
-
-If (Test-Path -Path $outputFile) {
-    $existingData = Import-Csv $outputFile
-
-    $existingData | foreach-object {
-        $projectId = $_.ProjectID
-        $scanId = $_.ScanID
-
-        if ($lastProjectScan.ContainsKey( $projectId )) {
-            break
-        } else {
-            $lastProjectScan[$projectId] = $scanId
-        }
-    }
-}
 
 function getScanInfo( $createdAt, $workflow ) {
     $startTime = [datetime]$createdAt
@@ -102,7 +85,7 @@ function GetProjectScanHistory( $Cx1ProjectID, $startTime ) {
                 Write-Host "Project $Cx1ProjectID scan $($scan.id) created at $($scan.createdAt) - before cutoff $startTime "
                 return
             }
-            if ( $scan.id -eq $lastProjectScan[$Cx1ProjectID] ) {
+            if ( $scan.id -eq $lastScanID ) {
                 Write-Host "Project $Cx1ProjectID scan $($scan.id) already in excel - skipping remaining scans"
                 return
             } else {
@@ -156,8 +139,7 @@ function GetProjectScanHistory( $Cx1ProjectID, $startTime ) {
 }
 
 
-$projectIDList | foreach-object {
-    GetProjectScanHistory $_ $startTime
-}
+GetProjectScanHistory $projectID $_ $startTime
+
 
 Remove-Module CxPowerShift
