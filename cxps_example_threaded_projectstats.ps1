@@ -28,12 +28,14 @@ If (Test-Path -Path $outputFile) {
     }
 }
 
+$mutex = New-Object System.Threading.Mutex($false, "projectstats")
+
 Write-Host "Creating jobs" 
 $jobs = $projectIDList | foreach-object {
     $projectId = $_
     $lastScanId = $lastProjectScan[$projectId]
     Start-ThreadJob -ScriptBlock {
-        .\cxps_example_single_projectstats.ps1 $using:projectId $using:lastScanId $using:cx1url $using:iamurl $using:tenant $using:apikey $using:since
+        .\cxps_example_single_projectstats.ps1 $using:projectId $using:lastScanId $using:cx1url $using:iamurl $using:tenant $using:apikey $using:since $using:mutex
     } -ThrottleLimit 5 -Name "Project $projectId" -StreamingHost $Host
 }
 

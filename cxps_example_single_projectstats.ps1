@@ -5,7 +5,8 @@ param(
     $iamurl,
     $tenant,
     $apikey, 
-    $since = ""
+    $since = "",
+    $mutex = $null
 )
 
 # This script is intended to be called by the threaded_projectstats script but can be used on its own also.
@@ -81,7 +82,7 @@ function GetProjectScanHistory( $Cx1ProjectID, $startTime ) {
 
     do {
         $scans = $cx1client.GetScans( $scan_limit, $Cx1ProjectID, "", "+created_at", $offset )
-        Write-Host "    Progress: $offset / $scan_limit - $($scans.scans[0].createdAt)"
+        Write-Host "    Progress for $($Cx1ProjectID): $($offset+1) / $scan_count - $($scans.scans[0].createdAt)"
         foreach( $scan in $scans.scans) {
             if ( [datetime]::Parse( $scan.createdAt ) -lt $startTime ) {
                 #Write-Host "Project $Cx1ProjectID scan $($scan.id) created at $($scan.createdAt) - before cutoff $startTime "
@@ -126,10 +127,17 @@ function GetProjectScanHistory( $Cx1ProjectID, $startTime ) {
                 $scanInfo.Status = $scan.status
                 $scanInfo.Finish = $scan.updatedAt
 
+                if ( $null -ne $mutex ) {
+                    $mutex.WaitOne()
+                }
                 if (Test-Path -Path $outputFile) {
                     Export-Csv -Path $outputFile -InputObject $scanInfo -NoTypeInformation -Append
                 } else {
                     Export-Csv -Path $outputFile -InputObject $scanInfo -NoTypeInformation
+                }
+                
+                if ( $null -ne $mutex ) {
+                    $mutex.ReleaseMutex()
                 }
 
                 #Add-Content -Path $outputFile -Value "$($stamps.ProjectID);$($stamps.ProjectName);$($stamps.ScanID);$($stamps.Status);$failReason;$($metadata.loc);$($metadata.fileCount);$($metadata.isIncremental);$($metadata.queryPreset);$($stamps.Start);$($stamps.Queued);$($stamps.SourcePulling);$($stamps.ScanQueued);$($stamps.ScanStart);$($stamps.ScanEnd);$($stamps.Finish)"
@@ -138,7 +146,7 @@ function GetProjectScanHistory( $Cx1ProjectID, $startTime ) {
     
         $offset += $scan_limit
     
-    } until ( $offset -gt $scan_count )
+    } until ( $offset -ge $scan_count )
 }
 
 
