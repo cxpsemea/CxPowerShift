@@ -8,6 +8,8 @@ param(
     $since = ""
 )
 
+# This script is intended to be called by the threaded_projectstats script but can be used on its own also.
+
 Import-Module .\CxPowerShift
 
 if ( $since -ne "" ) {
@@ -15,7 +17,7 @@ if ( $since -ne "" ) {
 } else {
     $startTime = [datetime]::Parse( "2020-01-01 00:00:00")
 }
-Write-Host "Filtering for scans since $startTime"
+#Write-Host "Filtering for scans since $startTime"
 
 $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
 $outputFile = "Cx1 project scans history.csv"
@@ -75,35 +77,36 @@ function GetProjectScanHistory( $Cx1ProjectID, $startTime ) {
     $offset = 0
     $scan_count = [int]($cx1client.GetScans( 1, $Cx1ProjectID ).filteredTotalCount)
 
-    Write-Host "Project $Cx1ProjectID has $scan_count scans total"
+    Write-Host "  Project $Cx1ProjectID has $scan_count scans total"
 
     do {
         $scans = $cx1client.GetScans( $scan_limit, $Cx1ProjectID, "", "+created_at", $offset )
-    
+        Write-Host "    Progress: $offset / $scan_limit - $($scans.scans[0].createdAt)"
         foreach( $scan in $scans.scans) {
             if ( [datetime]::Parse( $scan.createdAt ) -lt $startTime ) {
-                Write-Host "Project $Cx1ProjectID scan $($scan.id) created at $($scan.createdAt) - before cutoff $startTime "
+                #Write-Host "Project $Cx1ProjectID scan $($scan.id) created at $($scan.createdAt) - before cutoff $startTime "
                 return
             }
             if ( $scan.id -eq $lastScanID ) {
-                Write-Host "Project $Cx1ProjectID scan $($scan.id) already in excel - skipping remaining scans"
+                #Write-Host "Project $Cx1ProjectID scan $($scan.id) already in excel - skipping remaining scans"
                 return
             } else {
-                Write-Host "Processing project $Cx1ProjectID scan $($scan.id)"
+                #Write-Host "Processing project $Cx1ProjectID scan $($scan.id)"
             
                 $workflow = $cx1client.GetScanWorkflow( $scan.id )
                 $scanInfo = getScanInfo $scan.createdAt $workflow
 
-                try {
-                    $metadata = $cx1client.GetScanSASTMetadata( $scan.id )
-                    $scanInfo.LOC = $metadata.loc
-                    $scanInfo.FileCount = $metadata.fileCount
-                    $scanInfo.Incremental = $metadata.isIncremental
-                    $scanInfo.Preset = $metadata.queryPreset
-                } catch {
-                    Write-Warning "Failed to get metadata for scan $($scan.id): $_"
+                if ( $scan.Status -eq "Completed" ) {
+                    try {
+                        $metadata = $cx1client.GetScanSASTMetadata( $scan.id )
+                        $scanInfo.LOC = $metadata.loc
+                        $scanInfo.FileCount = $metadata.fileCount
+                        $scanInfo.Incremental = $metadata.isIncremental
+                        $scanInfo.Preset = $metadata.queryPreset
+                    } catch {
+                        Write-Warning "Failed to get metadata for scan $($scan.id): $_"
+                    }
                 }
-                
                 if ( $scan.status -eq "Failed" ) {
                     $scanInfo.FailReason = "zeebe" # default fail reason
                     if ( $null -ne $scan.statusDetails ) {
