@@ -428,6 +428,8 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
 
         $client | Add-Member ScriptMethod -name "SetShowErrors" -Value ${function:Set-ShowErrors}
 
+        $client | Add-Member ScriptMethod -name "GetScanInfo" -Value ${function:Get-ScanInfo}
+
         $client.GetToken()
 
         return $client
@@ -435,6 +437,103 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         log $_
     }
 }
+
+########################
+# Convenience functions below
+########################
+
+$stages = @( "Queued", "Running", "SourcePulling", "ScanQueued", "ScanStart", "ScanEnd" )
+
+$regex = @{
+    SourcePulling = "fetch-sources-.* started"
+    Running = "Scan running"
+    Queued = "reached, scan queued"
+    ScanQueued = "Queued in sast resource manager"
+    ScanStart = "sast-worker-.* started"
+    ScanEnd = "sast-worker-.* ended"
+}
+
+function Get-ScanInfo( $scan ) {
+    $startTime = $scan.createdAt.ToLocalTime()
+
+    $scanInfo = [PSCustomObject]@{
+        ProjectID = ""
+        ProjectName = ""
+        ScanID = ""
+        Status = ""
+        FailReason = ""
+        LOC = 0
+        FileCount = 0
+        Incremental = $false
+        Preset = ""
+        Start = $startTime
+        Queued = $null #"Max concurent scans reached, scan queued (Position: 40)"
+        Running = $null #"Scan running"
+        SourcePulling = $null #"fetch-sources-frankfurt started"
+        ScanQueued = $null #"sast-rm-frankfurt Queued in sast resource manager"
+        ScanStart = $null #"sast-worker-frankfurt started"
+        ScanEnd = $null #"sast-worker-frankfurt ended"
+        Finish = $null #"Scan Completed"
+    }
+
+    try {
+        $workflow = $this.GetScanWorkflow($scan.id)
+        foreach( $log in $workflow ) {
+            if ( $log.Timestamp -is [string] ) {
+                $log.Timestamp = [datetime]::Parse( $log.Timestamp )
+            }
+            $log.Timestamp = $log.Timestamp.ToLocalTime()
+            $lastStage = "Start"
+            foreach( $stage in $stages ) {
+                if ( $log.Info -match $regex[$stage] ) {
+                    $scanInfo.$stage = $log.Timestamp
+    
+                    if ( $null -eq $scaninfo.$lastStage ) {
+                        $scanInfo.$lastStage = $scanInfo.$stage
+                    }
+    
+                    break
+                }            
+    
+                $lastStage = $stage
+            }        
+        }
+    } catch {
+        Write-Warning "Failed to get workflow for scan $($scan.id): $_"
+    }
+
+
+    try {
+        $metadata = $this.GetScanSASTMetadata( $scan.id )
+        $scanInfo.LOC = $metadata.loc
+        $scanInfo.FileCount = $metadata.fileCount
+        $scanInfo.Incremental = $metadata.isIncremental
+        $scanInfo.Preset = $metadata.queryPreset
+    } catch {
+        Write-Warning "Failed to get metadata for scan $($scan.id): $_"
+    }
+    
+    if ( $scan.status -eq "Failed" ) {
+        $scanInfo.FailReason = "zeebe" # default fail reason
+        if ( $null -ne $scan.statusDetails ) {
+            foreach ( $reason in $scan.statusDetails ) {
+                if ( $reason.name -eq "sast" ) {
+                    if ( $reason.status -eq "failed" ) {
+                        $scanInfo.FailReason = $reason.details
+                    }
+                }
+            }
+        }
+    }
+
+    $scanInfo.ProjectID = $scan.projectId
+    $scanInfo.ProjectName = $scan.projectName
+    $scanInfo.ScanID = $scan.id
+    $scanInfo.Status = $scan.status
+    $scanInfo.Finish = $scan.updatedAt.ToLocalTime()
+    return $scanInfo
+}
+
 
 function Get-ConfigurationValue( $config, $key ) {
     $config | foreach-object { 
