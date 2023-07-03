@@ -445,9 +445,9 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
 $stages = @( "Queued", "Running", "SourcePulling", "ScanQueued", "ScanStart", "ScanEnd" )
 
 $regex = @{
-    SourcePulling = "fetch-sources-.* started"
+    Queued = "reached, scan queued"    
     Running = "Scan running"
-    Queued = "reached, scan queued"
+    SourcePulling = "fetch-sources-.* started"
     ScanQueued = "Queued in sast resource manager"
     ScanStart = "sast-worker-.* started"
     ScanEnd = "sast-worker-.* ended"
