@@ -16,9 +16,9 @@ $lastProjectScan = @{}
 If (Test-Path -Path $outputFile) {
     $existingData = Import-Csv $outputFile
 
-    $existingData | foreach-object {
-        $projectId = $_.ProjectID
-        $scanId = $_.ScanID
+    foreach ( $entry in $existingData ) {
+        $projectId = $entry.ProjectID
+        $scanId = $entry.ScanID
 
         if ($lastProjectScan.ContainsKey( $projectId )) {
             break
