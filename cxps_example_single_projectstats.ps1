@@ -18,7 +18,7 @@ if ( $since -ne "" ) {
 } else {
     $startTime = [datetime]::Parse( "2020-01-01 00:00:00")
 }
-Write-Host "Filtering for scans since $startTime"
+#Write-Host "Filtering for scans since $startTime"
 
 $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
 $outputFile = "Cx1 project scans history.csv"
