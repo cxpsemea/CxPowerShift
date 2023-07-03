@@ -19,15 +19,16 @@ If (Test-Path -Path $outputFile) {
     foreach ( $entry in $existingData ) {
         $projectId = $entry.ProjectID
         $scanId = $entry.ScanID
+        $startTime = $entry.Start
 
-        if ($lastProjectScan.ContainsKey( $projectId )) {
-            break
-        } else {
-            $lastProjectScan[$projectId] = $scanId
+        if ( (-Not $lastProjectScan.ContainsKey( $projectId )) -or ( $lastProjectScan[$projectId].startTime -lt $startTime )) {
+            $lastProjectScan[$projectId] = @{
+                scanId = $scanId
+                startTime = $startTime
+            }
         }
     }
 }
-
 $mutex = New-Object System.Threading.Mutex($false, "projectstats")
 
 Write-Host "Creating jobs" 
