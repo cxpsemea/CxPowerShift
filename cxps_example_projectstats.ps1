@@ -16,10 +16,28 @@ if ( $since -ne "" ) {
 }
 Write-Host "Filtering for scans since $startTime"
 
-$projectIDList = (get-content $projectsFile)
 $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
 $outputFile = "Cx1 project scans history.csv"
 $scan_limit = 10
+
+if ( $projectsFile -ne "" ) {
+    Write-Host "Loading list of project IDs from $projectsFile"
+    $projectIDList = (get-content $projectsFile)
+} else {
+    Write-Host "No project list provided, will get history of all projects"
+    $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
+    $projectCount = $cx1client.GetProjects(0).totalCount
+    $projects = $cx1client.GetProjects($projectCount).projects
+
+    $projectIDList = @()
+    foreach ( $proj in $projects ) {
+        $projectIDList += $proj.id
+    }
+
+    Write-Host $projectIDList
+
+    Write-Host "There are $($projectIDList.Length) projects"
+}
 
 $lastProjectScan = @{}
 
