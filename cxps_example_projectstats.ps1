@@ -3,81 +3,62 @@ param(
     $cx1url,
     $iamurl,
     $tenant,
-    $apikey
+    $apikey, 
+    $since = ""
 )
 
 Import-Module .\CxPowerShift
 
-$projectIDList = (get-content $projectsFile)
-$scan_limit = 10
+if ( $since -ne "" ) {
+    $startTime = [datetime]::Parse( $since )
+} else {
+    $startTime = [datetime]::Parse( "2020-01-01 00:00:00")
+}
+Write-Host "Filtering for scans since $startTime"
+
 $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
 $outputFile = "Cx1 project scans history.csv"
-$outputfileExists = $false
+$scan_limit = 10
+
+if ( $projectsFile -ne "" ) {
+    Write-Host "Loading list of project IDs from $projectsFile"
+    $projectIDList = (get-content $projectsFile)
+} else {
+    Write-Host "No project list provided, will get history of all projects"
+    $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
+    $projectCount = $cx1client.GetProjects(0).totalCount
+    $projects = $cx1client.GetProjects($projectCount).projects
+
+    $projectIDList = @()
+    foreach ( $proj in $projects ) {
+        $projectIDList += $proj.id
+    }
+
+    Write-Host $projectIDList
+
+    Write-Host "There are $($projectIDList.Length) projects"
+}
 
 $lastProjectScan = @{}
 
 If (Test-Path -Path $outputFile) {
-    $outputfileExists = $true
-    $existingData = (Import-Csv $outputFile -Delimiter ";")
-    
-    $lastPID = ""
-    $existingData | foreach-object {
-        if ( $_.ProjectID -ne $lastPID ) {
-            $lastPID = $_.ProjectID
-            $lastProjectScan[$lastPID] = $_.ScanID
+    $existingData = Import-Csv $outputFile
+
+    foreach ( $entry in $existingData ) {
+        $projectId = $entry.ProjectID
+        $scanId = $entry.ScanID
+        $startTime = $entry.Start
+
+        if ( (-Not $lastProjectScan.ContainsKey( $projectId )) -or ( $lastProjectScan[$projectId].startTime -lt $startTime )) {
+            $lastProjectScan[$projectId] = @{
+                scanId = $scanId
+                startTime = $startTime
+            }
         }
     }
 }
 
-$stages = @( "SourcePulling", "Queued", "ScanStart", "ScanEnd" )
-
-$regex = @{
-    SourcePulling = "fetch-sources-.* started"
-    Queued = "sast-rm-.* Queued in sast resource manager"
-    ScanStart = "sast-worker-.* started"
-    ScanEnd = "sast-worker-.* ended"
-}
-
-function getTimestamps( $createdAt, $workflow ) {
-    $startTime = [datetime]$createdAt
-    $zero = New-TimeSpan -Seconds 0
-
-    $scaninfo = [ordered]@{
-        ProjectID = ""
-        ProjectName = ""
-        ScanID = ""
-        Status = ""
-        Start = $startTime
-        SourcePulling = $zero #"fetch-sources-frankfurt started"
-        Queued = $zero #"sast-rm-frankfurt Queued in sast resource manager"
-        ScanStart = $zero #"sast-worker-frankfurt started"
-        ScanEnd = $zero #"sast-worker-frankfurt ended"
-        Finish = $zero #"Scan Completed"
-    }
-
-    foreach( $log in $workflow ) {
-        $log = $log
-
-        foreach( $stage in $stages ) {
-            if ( $log.Info -match $regex[$stage] ) {
-                $stampTime = [datetime]$log.Timestamp
-                $scaninfo[$stage] = $stampTime
-                break
-            }
-            
-            $lastStage = $stage
-        }        
-    }
-
-    return $scaninfo
-}
-
-# To do:
-#   + LOC
-#   + FileCount
-#   + Preset
-#   + Incremental
-function GetProjectScanHistory( $Cx1ProjectID ) {
+function GetProjectScanHistory( $Cx1ProjectID, $startTime ) {
     $offset = 0
     $scan_count = [int]($cx1client.GetScans( 1, $Cx1ProjectID ).filteredTotalCount)
 
@@ -87,22 +68,28 @@ function GetProjectScanHistory( $Cx1ProjectID ) {
         $scans = $cx1client.GetScans( $scan_limit, $Cx1ProjectID, "", "+created_at", $offset )
     
         foreach( $scan in $scans.scans) {
-            if ( $scan.id -eq $lastProjectScan[$Cx1ProjectID] ) {
-                Write-Host "Project $Cx1ProjectID scan $($scan.id) already in excel - skipping remaining scans"
+            if ( $scan.createdAt -is [string] ) {
+                $scan.createdAt = [datetime]::Parse($scan.createdAt)
+            }
+            $scan.createdAt = $scan.createdAt.ToLocalTime()                    
+            
+            if ( $scan.createdAt -lt $startTime ) {
+                Write-Host "Project $Cx1ProjectID scan $($scan.id) created at $([datetime]::Parse( $scan.createdAt )) - before cutoff $startTime "
+                return
+            }
+
+            if ( $scan.id -eq $lastScanID ) {
+                Write-Host "    Project for $Cx1ProjectID scan $($scan.id) already in excel - skipping remaining scans"
+                return
             } else {
                 Write-Host "Processing project $Cx1ProjectID scan $($scan.id)"
-            
-                $workflow = $cx1client.GetScanWorkflow( $scan.id )
-                $metadata = $cx1client.GetScanSASTMetadata( $scan.id )
-                $stamps = getTimestamps $scan.createdAt $workflow
-        
-                $stamps.ProjectID = $Cx1ProjectID
-                $stamps.ProjectName = $scan.projectName
-                $stamps.ScanID = $scan.id
-                $stamps.Status = $scan.status
-                $stamps.Finish = $scan.updatedAt
+                $scanInfo = $cx1client.GetScanInfo( $scan )                
 
-                Add-Content -Path $outputFile -Value "$($stamps.ProjectID);$($stamps.ProjectName);$($stamps.ScanID);$($stamps.Status);$($metadata.loc);$($metadata.fileCount);$($metadata.isIncremental);$($metadata.queryPreset);$($stamps.Start);$($stamps.SourcePulling);$($stamps.Queued);$($stamps.ScanStart);$($stamps.ScanEnd);$($stamps.Finish)"
+                if (Test-Path -Path $outputFile) {
+                    Export-Csv -Path $outputFile -InputObject $scanInfo -NoTypeInformation -Append
+                } else {
+                    Export-Csv -Path $outputFile -InputObject $scanInfo -NoTypeInformation
+                }
             }
         }
     
@@ -111,14 +98,9 @@ function GetProjectScanHistory( $Cx1ProjectID ) {
     } until ( $offset -gt $scan_count )
 }
 
-if ( -Not $outputfileExists ) {
-    Add-Content -Path $outputFile -Value "ProjectID;ProjectName;ScanID;Status;LOC;Files;Incremental;Preset;Start;Source Pulling;Queued;Scan Start;Scan End;Finish"
-}
 
 $projectIDList | foreach-object {
-    GetProjectScanHistory $_
+    GetProjectScanHistory $_ $startTime
 }
-
-
 
 Remove-Module CxPowerShift
