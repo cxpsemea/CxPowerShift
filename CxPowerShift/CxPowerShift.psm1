@@ -354,6 +354,26 @@ function Get-Presets() {
     return $this.Cx1Get( "presets", $params, "Failed to get presets" )
 }
 
+function Get-Audit() {
+    param (
+        [Parameter(Mandatory=$false)][bool]$download = $false
+    )
+
+    $res = $this.Cx1Get( "audit", @{}, "Failed to get Audit" )
+
+    if ( $download ) {
+        $events = $res.events
+
+        foreach ( $logfile in $res.links ) {
+            $res = req $logfile.url "GET" $this "Failed to download audit json" "" $this.Proxy
+            $events += $res
+        }
+        return $events
+    } else {
+        return $res.events
+    }
+}
+
 function Set-ShowErrors( $show ) {
     $this.ShowErrors = $show
 }
@@ -419,8 +439,8 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetScanWorkflow" -Value ${function:Get-ScanWorkflow}
         $client | Add-Member ScriptMethod -name "GetScanIntegrationsLog" -Value ${function:Get-ScanIntegrationsLog}
         $client | Add-Member ScriptMethod -name "GetScanSASTMetadata" -Value ${function:Get-ScanSASTMetadata}
-        $client | Add-Member ScriptMethod -name "GetScanSASTEngineLog" -Value ${function:Get-ScanSASTEngineLog}
-        
+        $client | Add-Member ScriptMethod -name "GetScanSASTEngineLog" -Value ${function:Get-ScanSASTEngineLog}        
+        $client | Add-Member ScriptMethod -name "GetScanInfo" -Value ${function:Get-ScanInfo}
 
         $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
 
@@ -428,7 +448,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
 
         $client | Add-Member ScriptMethod -name "SetShowErrors" -Value ${function:Set-ShowErrors}
 
-        $client | Add-Member ScriptMethod -name "GetScanInfo" -Value ${function:Get-ScanInfo}
+        $client | Add-Member ScriptMethod -name "GetAudit" -Value ${function:Get-Audit}
 
         $client.GetToken()
 
