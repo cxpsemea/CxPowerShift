@@ -474,34 +474,70 @@ function Get-GroupRoles() {
 }
 
 function Get-IAMRoles() {
-    return $this.IAMGet( "auth/admin", "roles", @{}, "Error getting list of IAM Roles" )
+    $roles = $this.IAMGet( "auth/admin", "roles", @{}, "Error getting list of IAM Roles" )
+    foreach ( $role in $roles ) {
+        $this.Cache.Roles[$role.name] = $role
+    }
+    return $roles
 }
 function Get-ClientRoles() {
     param (
         [Parameter(Mandatory=$true)][string]$clientID
     )
-    return $this.IAMGet( "auth/admin", "clients/$clientID/roles", @{}, "Error getting list of Client Roles under client $clientID" )
+    $roles = $this.IAMGet( "auth/admin", "clients/$clientID/roles", @{}, "Error getting list of Client Roles under client $clientID" )
+    foreach ( $role in $roles ) {
+        $this.Cache.Roles[$role.name] = $role
+    }
+    return $roles
 }
 function Get-ClientRoleByName() {
     param (
         [Parameter(Mandatory=$true)][string]$clientID,
         [Parameter(Mandatory=$true)][string]$roleName
     )
-    return $this.IAMGet( "auth/admin", "clients/$clientID/roles/$roleName", @{}, "Error getting Client Role named $roleName under client $clientID" )
+
+    if ( $this.Cache.Roles.ContainsKey( $roleName ) ) {
+        return $this.Cache.Roles[$roleName]
+    }
+
+    try {
+        $role = $this.IAMGet( "auth/admin", "clients/$clientID/roles/$roleName", @{}, "Error getting Client Role named $roleName under client $clientID" )
+        
+        $this.Cache.Roles[$role.name] = $role
+        return $role
+    } catch {}
+    
 }
 
 function Get-IAMRoleByName() {
     param (
         [Parameter(Mandatory=$true)][string]$roleName
     )
+    
+    if ( $this.Cache.Roles.ContainsKey( $roleName ) ) {
+        return $this.Cache.Roles[$roleName]
+    }
 
-    return $this.IAMGet( "auth/admin", "roles/$roleName", @{}, "Error getting role by name $roleName" )
+    try {
+        $role = $this.IAMGet( "auth/admin", "roles/$roleName", @{}, "Error getting role by name $roleName" )
+        
+        $this.Cache.Roles[$role.name] = $role
+        return $role
+    } catch {}
 }
 function Get-RoleComposites() {
     param (
         [Parameter(Mandatory=$true)][string]$roleID
     )
-    return $this.IAMGet( "auth/admin", "roles-by-id/$roleID/composites", @{}, "Error getting role composites for role $roleID" )
+
+    if ( $this.Cache.RoleComposites.ContainsKey( $roleID ) ) {
+        return $this.Cache.RoleComposites[$roleID]
+    }
+    try {
+        $comps = $this.IAMGet( "auth/admin", "roles-by-id/$roleID/composites", @{}, "Error getting role composites for role $roleID" )
+        $this.Cache.RoleComposites[$roleID] = $comps
+        return $comps
+    } catch {}
 }
 function Get-Clients() {
     param (
@@ -577,6 +613,10 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
             Proxy = $proxy
             Expiry = (Get-Date)
             ShowErrors = $true
+            Cache = [PSCustomObject]@{
+                Roles = @{}
+                RoleComposites = @{}
+            }
         }
 
         if ( $proxy -ne "" ) {

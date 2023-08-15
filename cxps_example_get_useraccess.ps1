@@ -111,7 +111,7 @@ if ( $newIAM ) {
                 Write-Host "`t- $role (direct user assignment)"
             }
         } catch {
-            Write-Host " - none"
+            #Write-Host " - none"
         }
         foreach ( $group in $groups ) {
             try {
@@ -122,7 +122,7 @@ if ( $newIAM ) {
                     Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
                 }
             } catch {
-                Write-Host " - none"
+                #Write-Host " - none"
             }
         }
 
@@ -143,7 +143,7 @@ if ( $newIAM ) {
                     Write-Host "`t`t- $role (direct user assignment)"
                 }
             } catch {
-                Write-Host " - none"
+                #Write-Host " - none"
             }
             foreach ( $group in $groups ) {
                 try {
@@ -158,7 +158,7 @@ if ( $newIAM ) {
                         Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
                     }
                 } catch {
-                    Write-Host " - none"
+                    #Write-Host " - none"
                 }
             }
         }
