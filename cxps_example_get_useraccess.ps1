@@ -56,7 +56,7 @@ foreach ( $group in $groups | Sort-Object -Property "name" ) {
     }
 }
 Write-Host "`n=================================`n"
-Write-Host "Final set of permissions held by user $($userEmail):`n"
+Write-Host "Final set of permissions held by user $($targetUser.username):`n"
 $ifingroup = $false
 foreach ( $perm in $permissions | Sort-Object -Property "name" ) {
     Write-Host "`t- $($perm.name) ($($perm.id))"
@@ -92,12 +92,113 @@ foreach ( $flag in $flags ) {
 }
 
 if ( $newIAM ) {
+    Write-Host "New access management is enabled, checking for assigned access permissions.`n"
     try {
+        
+        $cx1client.SetShowErrors($false)
         $assignments = $cx1client.GetResourcesAccessibleToEntity( $targetUser.id )
+        $cx1client.SetShowErrors($true)
         Write-Host "The following access assignments exist for this user: $assignments"
     } catch {
-        Write-Host "Error getting from /api/access-management/resources-for - iterating over all objects. This may take a while."
+        Write-Host "Error getting from /api/access-management/resources-for - iterating over all objects. This may take a while.`n"
+        
+        Write-Host "Tenant-level assignment for user $($targetUser.username):"
+        try {
+            $cx1client.SetShowErrors($false)
+            $access = $cx1client.GetResourceEntityAssignment( $cx1client.TenantID, $targetUser.id )            
+            $cx1client.SetShowErrors($true)
+            foreach ( $role in $access.entityRoles ) {
+                Write-Host "`t- $role (direct user assignment)"
+            }
+        } catch {
+            Write-Host " - none"
+        }
+        foreach ( $group in $groups ) {
+            try {
+                $cx1client.SetShowErrors($false)
+                $access = $cx1client.GetResourceEntityAssignment( $cx1client.TenantID, $group.id )            
+                $cx1client.SetShowErrors($true)
+                foreach ( $role in $access.entityRoles ) {
+                    Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
+                }
+            } catch {
+                Write-Host " - none"
+            }
+        }
 
+        Write-Host "Application-level assignments for user $($targetUser.username):"
+        $applicationCount = $cx1client.GetApplications(0).totalCount
+        $applications = $cx1client.GetApplications($applicationCount).applications
+        foreach( $app in $applications ) {
+            $shown = 0
+            try {
+                $cx1client.SetShowErrors($false)
+                $access = $cx1client.GetResourceEntityAssignment( $app.id, $targetUser.id )
+                $cx1client.SetShowErrors($true)
+                if ( $shown -eq 0 ) {
+                    Write-Host "`t$($app.name) ($($app.id)):"
+                    $shown = 1
+                }
+                foreach ( $role in $access.entityRoles ) {
+                    Write-Host "`t`t- $role (direct user assignment)"
+                }
+            } catch {
+                Write-Host " - none"
+            }
+            foreach ( $group in $groups ) {
+                try {
+                    $cx1client.SetShowErrors($false)
+                    $access = $cx1client.GetResourceEntityAssignment( $app.id, $group.id )  
+                    $cx1client.SetShowErrors($true) 
+                    if ( $shown -eq 0 ) {
+                        Write-Host "`t$($app.name) ($($app.id)):"
+                        $shown = 1
+                    } 
+                    foreach ( $role in $access.entityRoles ) {
+                        Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
+                    }
+                } catch {
+                    Write-Host " - none"
+                }
+            }
+        }
+
+        Write-Host "Project-level assignments for user $($targetUser.username):"
+        $projectCount = $cx1client.GetProjects(0).totalCount
+        $projects = $cx1client.GetProjects($projectCount).projects
+        foreach( $proj in $projects ) {
+            $shown = 0
+            try {
+                $cx1client.SetShowErrors($false)
+                $access = $cx1client.GetResourceEntityAssignment( $proj.id, $targetUser.id )
+                $cx1client.SetShowErrors($true)
+                if ( $shown -eq 0 ) {
+                    Write-Host "`t$($proj.name) ($($proj.id)):"
+                    $shown = 1
+                }
+                foreach ( $role in $access.entityRoles ) {
+                    Write-Host "`t`t- $role (direct user assignment)"
+                }
+            } catch {
+                Write-Host " - none"
+            }
+            foreach ( $group in $groups ) {
+                try {
+                    $cx1client.SetShowErrors($false)
+                    $access = $cx1client.GetResourceEntityAssignment( $proj.id, $group.id )  
+                    $cx1client.SetShowErrors($true) 
+                    if ( $shown -eq 0 ) {
+                        Write-Host "`t$($proj.name) ($($proj.id)):"
+                        $shown = 1
+                    } 
+                    foreach ( $role in $access.entityRoles ) {
+                        Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
+                    }
+                } catch {
+                    Write-Host " - none"
+                }
+            }
+        }
     }
     Write-Host "`n=================================`n"
 }
