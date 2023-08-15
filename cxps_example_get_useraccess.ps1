@@ -149,8 +149,9 @@ if ( $newIAM ) {
                 foreach ( $role in $access.entityRoles ) {
                     #Write-Host "`t`t- $role (direct user assignment)"
                     $temp_roles = @()
-                    $temp_roles += $cx1client.GetRoleByName($role)                   
-                    $temp_roles += $cx1client.GetDecomposedRoles($role.id)
+                    $roleObj = $cx1client.GetRoleByName($role)
+                    $temp_roles += $roleObj
+                    $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
                     $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                 }
             } catch {
@@ -164,8 +165,9 @@ if ( $newIAM ) {
                     foreach ( $role in $access.entityRoles ) {
                         #Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
                         $temp_roles = @()
-                        $temp_roles += $cx1client.GetRoleByName($role)                   
-                        $temp_roles += $cx1client.GetDecomposedRoles($role.id)
+                        $roleObj = $cx1client.GetRoleByName($role)
+                        $temp_roles += $roleObj
+                        $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
                         $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                     }
                 } catch {
@@ -192,8 +194,9 @@ if ( $newIAM ) {
                 foreach ( $role in $access.entityRoles ) {
                     #Write-Host "`t`t- $role (direct user assignment)"
                     $temp_roles = @()
-                    $temp_roles += $cx1client.GetRoleByName($role)                   
-                    $temp_roles += $cx1client.GetDecomposedRoles($role.id)
+                    $roleObj = $cx1client.GetRoleByName($role)
+                    $temp_roles += $roleObj
+                    $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
                     $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                 }
             } catch {
@@ -207,8 +210,9 @@ if ( $newIAM ) {
                     foreach ( $role in $access.entityRoles ) {
                         #Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
                         $temp_roles = @()
-                        $temp_roles += $cx1client.GetRoleByName($role)                   
-                        $temp_roles += $cx1client.GetDecomposedRoles($role.id)
+                        $roleObj = $cx1client.GetRoleByName($role)
+                        $temp_roles += $roleObj
+                        $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
                         $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                     }
                 } catch {
