@@ -146,6 +146,17 @@ function Cx1Patch {
     return req $uri "PATCH" $this $errorMessage $body $this.Proxy
 }
 
+function IAMGet {
+    param(
+        [Parameter(Mandatory=$true)][string]$base,
+        [Parameter(Mandatory=$true)][string]$api,
+        [Parameter(Mandatory=$false)]$query,
+        [Parameter(Mandatory=$false)][string]$errorMessage = "error getting $uri"
+    )
+    $uri = makeURI "$($this.IAMURL)/$base/realms/$($this.Tenant)/$api" $query
+    return req $uri "GET" $this $errorMessage "" $this.Proxy
+} 
+
 function shorten($str) {
     return $str.Substring(0,4) +".."+ $str.Substring($str.length - 4)
 }
@@ -378,6 +389,172 @@ function Set-ShowErrors( $show ) {
     $this.ShowErrors = $show
 }
 
+function Get-Users() {
+    param (
+        [Parameter(Mandatory=$false)][string]$userEmail = ""
+    )
+    $params = @{}
+    if ( $userEmail -ne "" ) {
+        $params.Add( "email", $userEmail )
+    }
+    return $this.IAMGet( "auth/admin", "users", $params, "Error getting list of users (optional email = $userEmail)" )
+}
+
+function Get-UserByEmail() {
+    param (
+        [Parameter(Mandatory=$true)][string]$userEmail
+    )
+    $params = @{}
+    $params.Add( "email", $userEmail )
+    return $this.IAMGet( "auth/admin", "users", $params, "Error getting list of users (optional email = $userEmail)" )
+}
+
+function Get-UserGroups() {
+    param (
+        [Parameter(Mandatory=$true)][string]$userID
+    )
+
+    return $this.IAMGet( "auth/admin", "users/$userID/groups", @{}, "Error getting a list of groups assigned to user $userID" )
+}
+
+function Get-Groups() {
+    param (
+        [Parameter(Mandatory=$false)][string]$search = ""
+    )
+
+    $params = @{}
+    if ( $search -ne "" ) {
+        $params.Add( "search", $search )
+    }
+
+    return $this.IAMGet( "auth/admin", "groups", $params, "Error getting a list of groups (optional search: $search)" )
+}
+
+function Get-GroupByName() {
+    param (
+        [Parameter(Mandatory=$true)][string]$search
+    )
+    $groups = $this.GetGroups( $search )    
+    return FindGroupInHierarchy $groups $search 
+}
+
+function Get-GroupRoles() {
+    param (
+        [Parameter(Mandatory=$true)][string]$groupID
+    )
+    $group = $this.IAMGet( "auth/admin", "groups/$groupID", @{}, "Error getting details for group ID $groupID" )
+    $roles = [array]@()
+    # in a group the roles are just names, not the actual role object
+    foreach ( $iamrole in $group.realmRoles ) {
+        $role = $this.GetIAMRoleByName( $iamrole )
+        $roles += $this.GetDecomposedRoles( $role.id )
+    } 
+
+    foreach ( $client in ($group.clientRoles.psobject.Members | where-object membertype -like 'noteproperty') ) {
+        $clientID = $this.GetClients( $client.Name )
+        
+        foreach ( $approle in $client.Value ) {
+                        $role = $this.GetClientRoleByName( $clientID.id, $approle )
+            $roles += $role
+            if ( $role.composite ) {
+                $roles += $this.GetDecomposedRoles( $role.id )
+            }
+        }
+    }
+
+
+    return $roles
+    
+}
+
+function Get-IAMRoles() {
+    return $this.IAMGet( "auth/admin", "roles", @{}, "Error getting list of IAM Roles" )
+}
+function Get-ClientRoles() {
+    param (
+        [Parameter(Mandatory=$true)][string]$clientID
+    )
+    return $this.IAMGet( "auth/admin", "clients/$clientID/roles", @{}, "Error getting list of Client Roles under client $clientID" )
+}
+function Get-ClientRoleByName() {
+    param (
+        [Parameter(Mandatory=$true)][string]$clientID,
+        [Parameter(Mandatory=$true)][string]$roleName
+    )
+    return $this.IAMGet( "auth/admin", "clients/$clientID/roles/$roleName", @{}, "Error getting Client Role named $roleName under client $clientID" )
+}
+
+function Get-IAMRoleByName() {
+    param (
+        [Parameter(Mandatory=$true)][string]$roleName
+    )
+
+    return $this.IAMGet( "auth/admin", "roles/$roleName", @{}, "Error getting role by name $roleName" )
+}
+function Get-RoleComposites() {
+    param (
+        [Parameter(Mandatory=$true)][string]$roleID
+    )
+    return $this.IAMGet( "auth/admin", "roles-by-id/$roleID/composites", @{}, "Error getting role composites for role $roleID" )
+}
+function Get-Clients() {
+    param (
+        [Parameter(Mandatory=$false)][string]$clientID = ""
+    )
+
+    $params = @{}
+    if ( -Not $clientID -eq "" ) {
+        $params.Add("clientId", $clientID)
+    }
+    return $this.IAMGet( "auth/admin", "clients", $params, "Failed to get clients (client id: $clientID)" )
+}
+
+function Get-RoleMappings() {
+    param (
+        [Parameter(Mandatory=$false)][string]$userID = ""
+    )
+
+    return $this.IAMGet( "auth/admin", "users/$userID/role-mappings/", @{}, "Failed to get role mappings for userID $userID" )
+}
+
+function Get-ResourceEntityAssignment() {
+    param (
+        [Parameter(Mandatory=$true)][string]$resourceID,
+        [Parameter(Mandatory=$true)][string]$entityID
+    )
+
+    $params = @{
+        "entity-id" = $entityID
+        "resource-id" = $resourceID
+    }
+
+    return $this.Cx1Get( "access-management", $params, "Failed to get access assignment between entity $entityID and resource $resourceID" )
+}
+
+function Get-ResourcesAccessibleToEntity() {
+    param (
+        [Parameter(Mandatory=$true)][string]$entityID,
+        [Parameter(Mandatory=$false)][string]$entityType = "user",
+        [Parameter(Mandatory=$false)][string]$resourceTypes = "tenant,application,project"
+    )
+    $params = @{
+        "entity-id" = $entityID
+        "entity-type" = $entityType
+        "resource-types" = $resourceTypes
+    }
+    return $this.Cx1Get( "access-management/resources-for", $params, "Failed to get $resourceTypes resources accessible to $entityType $entityID" )
+}
+
+function Get-Flags() {
+    $params = @{
+        filter = $this.TenantID
+    }
+    return $this.Cx1Get( "flags", $params, "Failed to get flags for tenant $($this.TenantID)" )
+}
+function Get-TenantInfo() {
+    return $this.IAMGet( "auth/admin", "", @{}, "Failed to get tenant info" )
+}
+
 ###########################
 # API-calls above this line
 ###########################
@@ -388,6 +565,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
             Cx1URL = $cx1url
             IAMURL = $iamurl
             Tenant = $tenant
+            TenantID = ""
             APIKey = ConvertTo-SecureString $apikey -AsPlainText -Force 
             Token = (New-Object System.Security.SecureString)
             Proxy = $proxy
@@ -396,18 +574,26 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         }
 
         if ( $proxy -ne "" ) {
-            add-type @"
-    using System.Net;
-    using System.Security.Cryptography.X509Certificates;
-    public class TrustAllCertsPolicy : ICertificatePolicy {
-        public bool CheckValidationResult(
-            ServicePoint srvPoint, X509Certificate certificate,
-            WebRequest request, int certificateProblem) {
-            return true;
-        }
-    }
+            if ($PSVersionTable.PSEdition -eq 'Core') {
+                $Script:PSDefaultParameterValues = @{
+                    "invoke-restmethod:SkipCertificateCheck" = $true
+                    "invoke-webrequest:SkipCertificateCheck" = $true
+                }
+            } else {
+                Add-Type @"
+                    using System.Net;
+                    using System.Security.Cryptography.X509Certificates;
+                    public class TrustAllCertsPolicy : ICertificatePolicy {
+                        public bool CheckValidationResult(
+                            ServicePoint srvPoint, X509Certificate certificate,
+                            WebRequest request, int certificateProblem) {
+                            return true;
+                        }
+                    }
 "@
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            
+                [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            }
         }
 
         $client | Add-Member ScriptMethod -name "GetToken" -Value ${function:GetToken} -Force
@@ -416,6 +602,8 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "Cx1Delete" -Value ${function:Cx1Delete}
         $client | Add-Member ScriptMethod -name "Cx1Post" -Value ${function:Cx1Post}
         $client | Add-Member ScriptMethod -name "Cx1Patch" -Value ${function:Cx1Patch}
+        $client | Add-Member ScriptMethod -name "IAMGet" -Value ${function:IAMGet}
+
         $client | Add-Member ScriptMethod -name "CreateApplication" -Value ${function:New-Application}
         $client | Add-Member ScriptMethod -name "GetApplications" -Value ${function:Get-Applications}
         $client | Add-Member ScriptMethod -name "DeleteApplication" -Value ${function:Remove-Application}
@@ -423,9 +611,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "CreateProject" -Value ${function:New-Project}
         $client | Add-Member ScriptMethod -name "GetProjects" -Value ${function:Get-Projects}
         $client | Add-Member ScriptMethod -name "DeleteProject" -Value ${function:Remove-Project}
-
         $client | Add-Member ScriptMethod -name "GetProjectConfiguration" -Value ${function:Get-ProjectConfiguration}
-
         $client | Add-Member ScriptMethod -name "GetPresets" -Value ${function:Get-Presets}
         
 
@@ -433,8 +619,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetScans" -Value ${function:Get-Scans}
         $client | Add-Member ScriptMethod -name "GetScan" -Value ${function:Get-Scan}
         $client | Add-Member ScriptMethod -name "DeleteScan" -Value ${function:Remove-Scan}
-        $client | Add-Member ScriptMethod -name "CancelScan" -Value ${function:Cancel-Scan}
-        
+        $client | Add-Member ScriptMethod -name "CancelScan" -Value ${function:Cancel-Scan}        
 
         $client | Add-Member ScriptMethod -name "GetScanWorkflow" -Value ${function:Get-ScanWorkflow}
         $client | Add-Member ScriptMethod -name "GetScanIntegrationsLog" -Value ${function:Get-ScanIntegrationsLog}
@@ -443,14 +628,44 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetScanInfo" -Value ${function:Get-ScanInfo}
 
         $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
-
         $client | Add-Member ScriptMethod -name "AddResultPredicate" -Value ${function:Add-ResultPredicate}
 
         $client | Add-Member ScriptMethod -name "SetShowErrors" -Value ${function:Set-ShowErrors}
 
         $client | Add-Member ScriptMethod -name "GetAudit" -Value ${function:Get-Audit}
 
+        $client | Add-Member ScriptMethod -name "GetUsers" -Value ${function:Get-Users}
+        $client | Add-Member ScriptMethod -name "GetUserByEmail" -Value ${function:Get-UserByEmail}
+        
+        $client | Add-Member ScriptMethod -name "GetUserGroups" -Value ${function:Get-UserGroups}
+        $client | Add-Member ScriptMethod -name "GetUserInheritedGroups" -Value ${function:Get-UserInheritedGroups}
+        $client | Add-Member ScriptMethod -name "GetGroupsFlat" -Value ${function:Get-GroupsFlat}
+        $client | Add-Member ScriptMethod -name "GetGroups" -Value ${function:Get-Groups}
+        $client | Add-Member ScriptMethod -name "GetGroupByName" -Value ${function:Get-GroupByName}
+        
+        $client | Add-Member ScriptMethod -name "GetClients" -Value ${function:Get-Clients}
+        $client | Add-Member ScriptMethod -name "GetIAMRoles" -Value ${function:Get-IAMRoles}
+        $client | Add-Member ScriptMethod -name "GetClientRoles" -Value ${function:Get-ClientRoles}
+        $client | Add-Member ScriptMethod -name "GetGroupRoles" -Value ${function:Get-GroupRoles}
+        $client | Add-Member ScriptMethod -name "GetRoleComposites" -Value ${function:Get-RoleComposites}
+        $client | Add-Member ScriptMethod -name "GetRoleMappings" -Value ${function:Get-RoleMappings}
+        $client | Add-Member ScriptMethod -name "GetIAMRoleByName" -Value ${function:Get-IAMRoleByName}
+        $client | Add-Member ScriptMethod -name "GetClientRoleByName" -Value ${function:Get-ClientRoleByName}
+        
+        $client | Add-Member ScriptMethod -name "GetDecomposedRoles" -Value ${function:Get-DecomposedRoles}
+        $client | Add-Member ScriptMethod -name "GetUserPermissions" -Value ${function:Get-UserPermissions}
+
+        $client | Add-Member ScriptMethod -name "GetResourceEntityAssignment" -Value ${function:Get-ResourceEntityAssignment}
+        $client | Add-Member ScriptMethod -name "GetResourcesAccessibleToEntity" -Value ${function:Get-ResourcesAccessibleToEntity}
+
+        $client | Add-Member ScriptMethod -name "GetFlags" -Value ${function:Get-Flags}
+        $client | Add-Member ScriptMethod -name "GetTenantInfo" -Value ${function:Get-TenantInfo}
+
+        $client | Add-Member ScriptMethod -name "ArrayContainsRole" -Value ${function:ArrayContainsRole}
+        
+
         $client.GetToken()
+        $client.TenantID = $client.GetTenantInfo().id
 
         return $client
     } catch {
@@ -554,6 +769,136 @@ function Get-ScanInfo( $scan ) {
     return $scanInfo
 }
 
+
+function Get-UserPermissions() {
+    param (
+        [Parameter(Mandatory=$true)][string]$userID
+    )
+
+    $mappings = $this.GetRoleMappings( $userID )
+
+    $comproles = [array]@()
+    $roles = [array]@()
+
+    foreach ( $iamrole in $mappings.realmMappings ) {
+        if ( -Not(ArrayContainsRole $roles $iamrole) ) {
+            if ( $iamrole.composite ) {
+                $comproles += $iamrole
+            } else {
+                $roles += $iamrole                
+            }
+        }
+    } 
+
+    foreach ( $client in ($mappings.clientMappings.psobject.Members | where-object membertype -like 'noteproperty') ) {
+        $client = $client.Value
+        foreach ( $crole in $client.mappings ) {
+            if ( -Not(ArrayContainsRole $roles $crole) ) {
+                if ( $crole.composite ) {
+                    $comproles += $crole
+                } else {
+                    $roles += $crole
+                }
+            }
+        }
+    }
+
+    foreach ( $comprole in $comproles ) {
+        if ( -Not(ArrayContainsRole $roles $comprole) ) {
+            $roles += $comprole
+            $subroles = $this.GetDecomposedRoles( $comprole.id )
+            foreach ( $sr in $subroles ) {
+                if ( -Not (ArrayContainsRole $roles $sr) ) {
+                    $roles += $sr
+                }
+            }            
+        }
+    }
+
+    return $roles
+}
+
+
+function Get-DecomposedRoles() {
+    param (
+        [Parameter(Mandatory=$true)][string]$roleID
+    )
+
+    $subRoles = [array]$this.GetRoleComposites( $roleID )
+    $roles = @()
+
+    foreach ( $subrole in $subRoles ) {
+        if ( $subrole.composite ) {
+            $roles += $this.GetDecomposedRoles( $subrole.id )
+        } else {
+            $roles += $subrole
+        }
+    }
+
+    return $roles
+}
+
+function ArrayContainsRole( $array, $role ) {
+    foreach ( $ar in $array ) {
+        if ( $ar.id -eq $role.id ) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Get-UserInheritedGroups() {
+    param (
+        [Parameter(Mandatory=$true)][string]$userID
+    )
+
+    $groups = @()
+    $direct_groups = $this.GetUserGroups( $userID )
+    foreach ( $group in $direct_groups ) {
+        $groups += $this.GetGroupsFlat( $group.id )
+    }
+    return $groups
+}
+function Get-GroupsFlat() {
+    param (
+        [Parameter(Mandatory=$true)][string]$groupID
+    )
+
+    $group = $this.IAMGet( "auth/admin", "groups/$groupID", @{}, "Error getting group info for group with ID $groupID" )
+
+    if ( $group.path -eq "/$($group.name)" ) { # no parent
+        return @( $group )
+    } else {
+        $groups = @()
+
+        $split_path = $group.path.Split( "/" )
+        foreach ( $part in $split_path ) {
+            if ( $part -ne "" ) {
+                $subgroup = $this.GetGroupByName( $part )
+                if ( $null -ne $subgroup ) {
+                    $groups += $subgroup
+                }
+            }
+        }
+
+        return $groups
+    }
+}
+
+function FindGroupInHierarchy( $groups, $target ) {
+    foreach ( $group in $groups ) {
+        Write-Host " - $($group.name)"
+        if ( $group.name -eq $target ) {
+            return $group
+        } else {
+            $subgroup = FindGroupInHierarchy $group.subGroups $target 
+            if ( $null -ne $subgroup ) {
+                return $subgroup
+            }
+        }
+    }
+    return $null
+}
 
 function Get-ConfigurationValue( $config, $key ) {
     $config | foreach-object { 
