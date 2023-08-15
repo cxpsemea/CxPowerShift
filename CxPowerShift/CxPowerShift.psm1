@@ -450,25 +450,36 @@ function Get-GroupRoles() {
     )
     $group = $this.IAMGet( "auth/admin", "groups/$groupID", @{}, "Error getting details for group ID $groupID" )
     $roles = [array]@()
+    #Write-Host "Get group roles for $groupID"
     # in a group the roles are just names, not the actual role object
     foreach ( $iamrole in $group.realmRoles ) {
+        $temp_roles = @()
         $role = $this.GetIAMRoleByName( $iamrole )
-        $roles += $this.GetDecomposedRoles( $role.id )
+        $temp_roles += $role
+        if ( $role.composite ) {
+            $temp_roles += $this.GetDecomposedRoles( $role.id )
+        }
+        #Write-Host "Merge in $($temp_roles.Length) iam roles"
+        $roles = MergeRoleArrays $roles $temp_roles
     } 
+
 
     foreach ( $client in ($group.clientRoles.psobject.Members | where-object membertype -like 'noteproperty') ) {
         $clientID = $this.GetClients( $client.Name )
         
         foreach ( $approle in $client.Value ) {
-                        $role = $this.GetClientRoleByName( $clientID.id, $approle )
-            $roles += $role
+            $temp_roles = @()
+            $role = $this.GetClientRoleByName( $clientID.id, $approle )
+            $temp_roles += $role
             if ( $role.composite ) {
-                $roles += $this.GetDecomposedRoles( $role.id )
+                $temp_roles += $this.GetDecomposedRoles( $role.id )
             }
+            #Write-Host "Merge in $($temp_roles.Length) client $($clientID.clientId) roles"
+            $roles = MergeRoleArrays  $roles $temp_roles
         }
     }
 
-
+    #Write-Host "Return $($roles.Length) roles"
     return $roles
     
 }
@@ -915,19 +926,20 @@ function ArrayContainsRole( $array, $role ) {
 
 function MergeRoleArrays( $array1, $array2 ) {
     $res = @()
+    #Write-Host "Merging $($array1.Length) and $($array2.Length)"
     foreach ( $r1 in $array1 ) {
-        $match = ArrayContainsRole( $array2, $r1 )
-        if ( -Not $match ) {
+        if ( -Not (ArrayContainsRole $array2 $r1 ) ) {
             $res += $r1
         }
     }
 
     foreach ( $r2 in $array2 ) {
-        $match = ArrayContainsRole( $res, $r2 )
-        if ( -Not $match ) {
+        if ( -Not (ArrayContainsRole $res $r2 ) ) {
             $res += $r2
         }
     }
+
+    #Write-Host "Merged into list of $($res.Length) length"
     return $res
 }
 

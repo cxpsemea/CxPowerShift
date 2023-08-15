@@ -48,7 +48,7 @@ Write-Host "`n=================================`nUser has the following permissi
 foreach ( $group in $groups | Sort-Object -Property "name" ) {
     Write-Host "`t- $($group.name) ($($group.id))"
     $group_roles = $cx1client.GetGroupRoles($group.id)
-    foreach ( $role in $group_roles | Sort-Object ) {
+    foreach ( $role in $group_roles | Sort-Object -Property "name" ) {
         Write-Host "`t`t- $($role.name) ($($role.id))"
         if ( -Not($cx1client.ArrayContainsRole( $permissions, $role )) ) {
             $permissions += $role
