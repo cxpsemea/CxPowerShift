@@ -406,7 +406,13 @@ function Get-UserByEmail() {
     )
     $params = @{}
     $params.Add( "email", $userEmail )
-    return $this.IAMGet( "auth/admin", "users", $params, "Error getting list of users (optional email = $userEmail)" )
+    return $this.IAMGet( "auth/admin", "users", $params, "Error getting users with email = $userEmail" )
+}
+function Get-UserByID() {
+    param (
+        [Parameter(Mandatory=$true)][string]$userID
+    )
+    return $this.IAMGet( "auth/admin", "users/$userID", $params, "Error getting info for user $userID" )
 }
 
 function Get-UserGroups() {
@@ -636,6 +642,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
 
         $client | Add-Member ScriptMethod -name "GetUsers" -Value ${function:Get-Users}
         $client | Add-Member ScriptMethod -name "GetUserByEmail" -Value ${function:Get-UserByEmail}
+        $client | Add-Member ScriptMethod -name "GetUserByID" -Value ${function:Get-UserByID}
         
         $client | Add-Member ScriptMethod -name "GetUserGroups" -Value ${function:Get-UserGroups}
         $client | Add-Member ScriptMethod -name "GetUserInheritedGroups" -Value ${function:Get-UserInheritedGroups}

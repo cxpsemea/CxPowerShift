@@ -3,7 +3,8 @@ param(
     $iamurl,
     $tenant,
     $apikey, 
-    $userEmail
+    $userEmail,
+    $userID
 )
 
 # This script is intended to be called by the threaded_projectstats script but can be used on its own also.
@@ -17,15 +18,23 @@ try {
     return
 }
 
-$users = $cx1client.GetUserByEmail($userEmail)
-
-if ( $users.Length -eq 0 ) {
-    Write-Host "No users found matching email $userEmail"
-    return
+if ( $userEmail -ne "" ) {
+    $users = $cx1client.GetUserByEmail($userEmail)
+    if ( $users.Length -eq 0 ) {
+        Write-Host "No users found matching email $userEmail"
+        return
+    } else {
+        $targetUser = $users[0]
+        Write-Host "User ID for user with email $userEmail is: $($targetUser.id)"
+    } 
+} elseif ( $userID -ne "" ) {
+    $targetUser = $cx1client.GetUserByID( $userID )
 } else {
-    $targetUser = $users[0]
-    Write-Host "First user matching $userEmail is: $targetUser"
-} 
+    Write-Host "Error: must provide userID or userEmail parameters"
+    return
+}
+
+
 $permissions = $cx1client.GetUserPermissions($targetUser.id)
 
 Write-Host "`n=================================`nUser has the following permissions assigned directly:"
@@ -74,7 +83,15 @@ if ( $ifingroup ) {
 
 Write-Host "`n=================================`n"
 $flags = $cx1client.GetFlags()
-if ( $flags["ACCESS_MANAGEMENT_ENABLED"].status ) {
+
+$newIAM = $false
+foreach ( $flag in $flags ) {
+    if ( $flag.name -eq "ACCESS_MANAGEMENT_ENABLED" ) {
+        $newIAM = $flag.status
+    }
+}
+
+if ( $newIAM ) {
     try {
         $assignments = $cx1client.GetResourcesAccessibleToEntity( $targetUser.id )
         Write-Host "The following access assignments exist for this user: $assignments"
