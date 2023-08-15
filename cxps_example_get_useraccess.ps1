@@ -80,7 +80,6 @@ if ( $ifingroup ) {
 }
 
 
-Write-Host "`n=================================`n"
 $flags = $cx1client.GetFlags()
 
 $newIAM = $false
@@ -91,6 +90,7 @@ foreach ( $flag in $flags ) {
 }
 
 if ( $newIAM ) {
+    Write-Host "`n=================================`n"
     Write-Host "New access management is enabled, checking for assigned access permissions.`n"
     try {
         
