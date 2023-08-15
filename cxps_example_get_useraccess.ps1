@@ -107,8 +107,10 @@ if ( $newIAM ) {
             $cx1client.SetShowErrors($false)
             $access = $cx1client.GetResourceEntityAssignment( $cx1client.TenantID, $targetUser.id )            
             $cx1client.SetShowErrors($true)
+            $roles = @()
             foreach ( $role in $access.entityRoles ) {
-                Write-Host "`t- $role (direct user assignment)"
+                $roles += $cx1client.GetRoleByName($role)
+                $roles += $cx1client.GetDecomposedRoles($role.id)
             }
         } catch {
             #Write-Host " - none"
@@ -119,28 +121,37 @@ if ( $newIAM ) {
                 $access = $cx1client.GetResourceEntityAssignment( $cx1client.TenantID, $group.id )            
                 $cx1client.SetShowErrors($true)
                 foreach ( $role in $access.entityRoles ) {
-                    Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
+                    #Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
+                    $roles += $cx1client.GetRoleByName($role)                   
+                    $roles += $cx1client.GetDecomposedRoles($role.id)
                 }
             } catch {
                 #Write-Host " - none"
             }
+        }
+        if ( $roles.Length -gt 0 ) {
+            foreach ( $role in $roles | Sort-Object -Property "name" ) {
+                Write-Host "`t- $($role.name) ($($role.id))"   
+            }
+        } else {
+            Write-Host " - none"
         }
 
         Write-Host "Application-level assignments for user $($targetUser.username):"
         $applicationCount = $cx1client.GetApplications(0).totalCount
         $applications = $cx1client.GetApplications($applicationCount).applications
         foreach( $app in $applications ) {
-            $shown = 0
+            $roles = @()
             try {
                 $cx1client.SetShowErrors($false)
                 $access = $cx1client.GetResourceEntityAssignment( $app.id, $targetUser.id )
                 $cx1client.SetShowErrors($true)
-                if ( $shown -eq 0 ) {
-                    Write-Host "`t$($app.name) ($($app.id)):"
-                    $shown = 1
-                }
                 foreach ( $role in $access.entityRoles ) {
-                    Write-Host "`t`t- $role (direct user assignment)"
+                    #Write-Host "`t`t- $role (direct user assignment)"
+                    $temp_roles = @()
+                    $temp_roles += $cx1client.GetRoleByName($role)                   
+                    $temp_roles += $cx1client.GetDecomposedRoles($role.id)
+                    $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                 }
             } catch {
                 #Write-Host " - none"
@@ -150,15 +161,21 @@ if ( $newIAM ) {
                     $cx1client.SetShowErrors($false)
                     $access = $cx1client.GetResourceEntityAssignment( $app.id, $group.id )  
                     $cx1client.SetShowErrors($true) 
-                    if ( $shown -eq 0 ) {
-                        Write-Host "`t$($app.name) ($($app.id)):"
-                        $shown = 1
-                    } 
                     foreach ( $role in $access.entityRoles ) {
-                        Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
+                        #Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
+                        $temp_roles = @()
+                        $temp_roles += $cx1client.GetRoleByName($role)                   
+                        $temp_roles += $cx1client.GetDecomposedRoles($role.id)
+                        $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                     }
                 } catch {
                     #Write-Host " - none"
+                }
+            }
+            if ( $roles.Length -gt 0 ) {
+                Write-Host "`t- $($app.name) ($($app.id)):"
+                foreach ( $role in $roles | Sort-Object -Property "name" ) {
+                    Write-Host "`t`t- $($role.name) ($($role.id))"   
                 }
             }
         }
@@ -167,35 +184,43 @@ if ( $newIAM ) {
         $projectCount = $cx1client.GetProjects(0).totalCount
         $projects = $cx1client.GetProjects($projectCount).projects
         foreach( $proj in $projects ) {
-            $shown = 0
+            $roles = @()
             try {
                 $cx1client.SetShowErrors($false)
                 $access = $cx1client.GetResourceEntityAssignment( $proj.id, $targetUser.id )
                 $cx1client.SetShowErrors($true)
-                if ( $shown -eq 0 ) {
-                    Write-Host "`t$($proj.name) ($($proj.id)):"
-                    $shown = 1
-                }
                 foreach ( $role in $access.entityRoles ) {
-                    Write-Host "`t`t- $role (direct user assignment)"
+                    #Write-Host "`t`t- $role (direct user assignment)"
+                    $temp_roles = @()
+                    $temp_roles += $cx1client.GetRoleByName($role)                   
+                    $temp_roles += $cx1client.GetDecomposedRoles($role.id)
+                    $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                 }
             } catch {
-                Write-Host " - none"
+                #Write-Host " - none"
             }
             foreach ( $group in $groups ) {
                 try {
                     $cx1client.SetShowErrors($false)
                     $access = $cx1client.GetResourceEntityAssignment( $proj.id, $group.id )  
                     $cx1client.SetShowErrors($true) 
-                    if ( $shown -eq 0 ) {
-                        Write-Host "`t$($proj.name) ($($proj.id)):"
-                        $shown = 1
-                    } 
                     foreach ( $role in $access.entityRoles ) {
-                        Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
+                        #Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
+                        $temp_roles = @()
+                        $temp_roles += $cx1client.GetRoleByName($role)                   
+                        $temp_roles += $cx1client.GetDecomposedRoles($role.id)
+                        $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                     }
                 } catch {
-                    Write-Host " - none"
+                    #Write-Host " - none"
+                }
+            }
+
+            
+            if ( $roles.Length -gt 0 ) {
+                Write-Host "`t- $($app.name) ($($app.id)):"
+                foreach ( $role in $roles | Sort-Object -Property "name" ) {
+                    Write-Host "`t`t- $($role.name) ($($role.id))"   
                 }
             }
         }

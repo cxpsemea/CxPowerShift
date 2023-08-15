@@ -525,6 +525,22 @@ function Get-IAMRoleByName() {
         return $role
     } catch {}
 }
+
+function Get-RoleByName() {
+    param (
+        [Parameter(Mandatory=$true)][string]$roleName
+    )
+
+    try {
+        $role = $this.GetIAMRoleByName($roleName)
+        return $role
+    } catch {}
+    try {
+        $role = $this.GetClientRoleByName( "ast-app", $roleName )
+        return $role
+    } catch {}
+}
+
 function Get-RoleComposites() {
     param (
         [Parameter(Mandatory=$true)][string]$roleID
@@ -698,6 +714,8 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetRoleMappings" -Value ${function:Get-RoleMappings}
         $client | Add-Member ScriptMethod -name "GetIAMRoleByName" -Value ${function:Get-IAMRoleByName}
         $client | Add-Member ScriptMethod -name "GetClientRoleByName" -Value ${function:Get-ClientRoleByName}
+        $client | Add-Member ScriptMethod -name "GetRoleByName" -Value ${function:Get-RoleByName}
+        
         
         $client | Add-Member ScriptMethod -name "GetDecomposedRoles" -Value ${function:Get-DecomposedRoles}
         $client | Add-Member ScriptMethod -name "GetUserPermissions" -Value ${function:Get-UserPermissions}
@@ -709,6 +727,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetTenantInfo" -Value ${function:Get-TenantInfo}
 
         $client | Add-Member ScriptMethod -name "ArrayContainsRole" -Value ${function:ArrayContainsRole}
+        $client | Add-Member ScriptMethod -name "MergeRoleArrays" -Value ${function:MergeRoleArrays}
         
 
         $client.GetToken()
@@ -892,6 +911,24 @@ function ArrayContainsRole( $array, $role ) {
         }
     }
     return $false
+}
+
+function MergeRoleArrays( $array1, $array2 ) {
+    $res = @()
+    foreach ( $r1 in $array1 ) {
+        $match = ArrayContainsRole( $array2, $r1 )
+        if ( -Not $match ) {
+            $res += $r1
+        }
+    }
+
+    foreach ( $r2 in $array2 ) {
+        $match = ArrayContainsRole( $res, $r2 )
+        if ( -Not $match ) {
+            $res += $r2
+        }
+    }
+    return $res
 }
 
 function Get-UserInheritedGroups() {
