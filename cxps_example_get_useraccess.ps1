@@ -63,10 +63,10 @@ foreach ( $perm in $permissions | Sort-Object -Property "name" ) {
         $ifingroup = $true
     }
 }
-Write-Host "`n=================================`n"
 
 
 if ( $ifingroup ) {
+    Write-Host "`n=================================`n"
     Write-Host "User has access to the following projects due to *-if-in-group permissions:"
     $projectCount = $cx1client.GetProjects(0).totalCount
     $projects = $cx1client.GetProjects($projectCount).projects
