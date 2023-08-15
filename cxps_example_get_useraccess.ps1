@@ -7,8 +7,6 @@ param(
     $userID
 )
 
-# This script is intended to be called by the threaded_projectstats script but can be used on its own also.
-
 Import-Module .\CxPowerShift
 
 try {
@@ -249,7 +247,7 @@ if ( $newIAM ) {
 
             
             if ( $roles.Length -gt 0 ) {
-                Write-Host "`t- $($app.name) ($($app.id)):"
+                Write-Host "`t- $($proj.name) ($($proj.id)):"
                 foreach ( $role in $roles | Sort-Object -Property "name" ) {
                     Write-Host "`t`t- $($role.name) ($($role.id))"   
                 }
