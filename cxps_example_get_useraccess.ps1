@@ -41,7 +41,6 @@ Write-Host "`n=================================`nUser has the following permissi
 foreach ( $perm in $permissions| Sort-Object -Property "name" ) {
     Write-Host "`t- $($perm.name) ($($perm.id))"
 }
-
 $groups = $cx1client.GetUserInheritedGroups( $targetUser.id )
 Write-Host "`n=================================`nUser has the following permissions inherited from groups:"
 

@@ -983,7 +983,7 @@ function Get-GroupsFlat() {
 
 function FindGroupInHierarchy( $groups, $target ) {
     foreach ( $group in $groups ) {
-        Write-Host " - $($group.name)"
+        #Write-Host " - $($group.name)"
         if ( $group.name -eq $target ) {
             return $group
         } else {
