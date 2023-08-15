@@ -7,8 +7,6 @@ param(
     $userID
 )
 
-# This script is intended to be called by the threaded_projectstats script but can be used on its own also.
-
 Import-Module .\CxPowerShift
 
 try {
