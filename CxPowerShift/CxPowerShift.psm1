@@ -542,8 +542,13 @@ function Get-RoleByName() {
         [Parameter(Mandatory=$true)][string]$roleName
     )
 
+    $show = $this.ShowErrors
     try {
+        $this.ShowErrors = $false
+
         $role = $this.GetIAMRoleByName($roleName)
+
+        $this.ShowErrors = $show
         return $role
     } catch {}
     try {
