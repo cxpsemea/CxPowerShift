@@ -517,7 +517,7 @@ function Get-ClientRoleByName() {
         $this.Cache.Roles[$role.name] = $role
         return $role
     } catch {}
-    
+    return $null
 }
 
 function Get-IAMRoleByName() {
@@ -535,6 +535,8 @@ function Get-IAMRoleByName() {
         $this.Cache.Roles[$role.name] = $role
         return $role
     } catch {}
+
+    return $null
 }
 
 function Get-RoleByName() {
@@ -543,18 +545,30 @@ function Get-RoleByName() {
     )
 
     $show = $this.ShowErrors
+    $this.ShowErrors = $false
     try {
-        $this.ShowErrors = $false
 
         $role = $this.GetIAMRoleByName($roleName)
 
+        if ( $null -ne $role ) {
+            $this.ShowErrors = $show
+            return $role
+        }
+    } catch {}
+
+    try {
+
+        $client = $this.GetClients( "ast-app" )
+
+        $role = $this.GetClientRoleByName( $client.id, $roleName )
+        
         $this.ShowErrors = $show
         return $role
     } catch {}
-    try {
-        $role = $this.GetClientRoleByName( "ast-app", $roleName )
-        return $role
-    } catch {}
+
+    
+    $this.ShowErrors = $show
+    return $null
 }
 
 function Get-RoleComposites() {
