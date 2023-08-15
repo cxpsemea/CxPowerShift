@@ -154,6 +154,9 @@ if ( $newIAM ) {
         foreach( $app in $applications ) {
             $roles = @()
             $checkedApps += 1
+            if ( $checkedApps % 10 -eq 0 ) {
+                Write-Host " - $checkedApps / $applicationCount apps"
+            }
             try {
                 $cx1client.SetShowErrors($false)
                 $access = $cx1client.GetResourceEntityAssignment( $app.id, $targetUser.id )
@@ -201,8 +204,13 @@ if ( $newIAM ) {
         Write-Host "Project-level assignments for user $($targetUser.username):"
         $projectCount = $cx1client.GetProjects(0).totalCount
         $projects = $cx1client.GetProjects($projectCount).projects
+        $checkedProjects = 0
         foreach( $proj in $projects ) {
             $roles = @()
+            $checkedProjects += 1
+            if ( $checkedProjects % 10 -eq 0 ) {
+                Write-Host " - $checkedProjects / $projectCount apps"
+            }
             try {
                 $cx1client.SetShowErrors($false)
                 $access = $cx1client.GetResourceEntityAssignment( $proj.id, $targetUser.id )
