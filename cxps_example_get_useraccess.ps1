@@ -109,8 +109,13 @@ if ( $newIAM ) {
             $cx1client.SetShowErrors($true)
             $roles = @()
             foreach ( $role in $access.entityRoles ) {
-                $roles += $cx1client.GetRoleByName($role)
-                $roles += $cx1client.GetDecomposedRoles($role.id)
+                $temp_roles = @()
+                $roleObj = $cx1client.GetRoleByName($role)
+                $temp_roles += $roleObj
+                if ( $roleObj.composite ) {
+                    $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                }
+                $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
             }
         } catch {
             #Write-Host " - none"
@@ -122,8 +127,13 @@ if ( $newIAM ) {
                 $cx1client.SetShowErrors($true)
                 foreach ( $role in $access.entityRoles ) {
                     #Write-Host "`t- $role (assignment through group $($group.name) ($($group.id)))"
-                    $roles += $cx1client.GetRoleByName($role)                   
-                    $roles += $cx1client.GetDecomposedRoles($role.id)
+                    $temp_roles = @()
+                    $roleObj = $cx1client.GetRoleByName($role)
+                    $temp_roles += $roleObj
+                    if ( $roleObj.composite ) {
+                        $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                    }
+                    $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                 }
             } catch {
                 #Write-Host " - none"
@@ -140,8 +150,10 @@ if ( $newIAM ) {
         Write-Host "Application-level assignments for user $($targetUser.username):"
         $applicationCount = $cx1client.GetApplications(0).totalCount
         $applications = $cx1client.GetApplications($applicationCount).applications
+        $checkedApps = 0
         foreach( $app in $applications ) {
             $roles = @()
+            $checkedApps += 1
             try {
                 $cx1client.SetShowErrors($false)
                 $access = $cx1client.GetResourceEntityAssignment( $app.id, $targetUser.id )
@@ -151,7 +163,9 @@ if ( $newIAM ) {
                     $temp_roles = @()
                     $roleObj = $cx1client.GetRoleByName($role)
                     $temp_roles += $roleObj
-                    $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                    if ( $roleObj.composite ) {
+                        $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                    }
                     $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                 }
             } catch {
@@ -167,7 +181,9 @@ if ( $newIAM ) {
                         $temp_roles = @()
                         $roleObj = $cx1client.GetRoleByName($role)
                         $temp_roles += $roleObj
-                        $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                        if ( $roleObj.composite ) {
+                            $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                        }
                         $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                     }
                 } catch {
@@ -196,7 +212,9 @@ if ( $newIAM ) {
                     $temp_roles = @()
                     $roleObj = $cx1client.GetRoleByName($role)
                     $temp_roles += $roleObj
-                    $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                    if ( $roleObj.composite ) {
+                        $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                    }
                     $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                 }
             } catch {
@@ -212,7 +230,9 @@ if ( $newIAM ) {
                         $temp_roles = @()
                         $roleObj = $cx1client.GetRoleByName($role)
                         $temp_roles += $roleObj
-                        $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                        if ( $roleObj.composite ) {
+                            $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                        }
                         $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                     }
                 } catch {
