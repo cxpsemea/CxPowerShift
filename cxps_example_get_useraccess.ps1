@@ -147,7 +147,7 @@ if ( $newIAM ) {
             Write-Host " - none"
         }
 
-        Write-Host "Application-level assignments for user $($targetUser.username):"
+        Write-Host "`nApplication-level assignments for user $($targetUser.username):"
         $applicationCount = $cx1client.GetApplications(0).totalCount
         $applications = $cx1client.GetApplications($applicationCount).applications
         $checkedApps = 0
@@ -201,7 +201,7 @@ if ( $newIAM ) {
             }
         }
 
-        Write-Host "Project-level assignments for user $($targetUser.username):"
+        Write-Host "`nProject-level assignments for user $($targetUser.username):"
         $projectCount = $cx1client.GetProjects(0).totalCount
         $projects = $cx1client.GetProjects($projectCount).projects
         $checkedProjects = 0
@@ -209,7 +209,7 @@ if ( $newIAM ) {
             $roles = @()
             $checkedProjects += 1
             if ( $checkedProjects % 10 -eq 0 ) {
-                Write-Host " - $checkedProjects / $projectCount apps"
+                Write-Host " - $checkedProjects / $projectCount projects"
             }
             try {
                 $cx1client.SetShowErrors($false)
