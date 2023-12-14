@@ -7,13 +7,15 @@ param(
     $since = ""
 )
 
+
+Import-Module .\CxPowerShift
+$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" "" "" 
+
 if ( $projectsFile -ne "" ) {
     Write-Host "Loading list of project IDs from $projectsFile"
     $projectIDList = (get-content $projectsFile)
 } else {
     Write-Host "No project list provided, will get history of all projects"
-    Import-Module .\CxPowerShift
-    $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
     $projectCount = $cx1client.GetProjects(0).totalCount
     $projects = $cx1client.GetProjects($projectCount).projects
 

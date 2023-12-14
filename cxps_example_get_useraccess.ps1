@@ -10,7 +10,7 @@ param(
 Import-Module .\CxPowerShift
 
 try {
-    $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" # "http://localhost:8080" 
+    $cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" "" ""# "http://localhost:8080" 
 } catch {
     Write-Host "Error creating cx1 client: $_"s
     return

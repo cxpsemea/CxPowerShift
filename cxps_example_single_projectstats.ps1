@@ -20,7 +20,7 @@ if ( $since -ne "" ) {
 }
 #Write-Host "Filtering for scans since $startTime"
 
-$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" 
+$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" ""
 $outputFile = "Cx1 project scans history.csv"
 $scan_limit = 10
 
