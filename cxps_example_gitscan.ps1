@@ -8,7 +8,7 @@ param(
 
 Import-Module .\CxPowerShift
 
-$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey $proxy
+$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" "" $proxy
 
 
 
