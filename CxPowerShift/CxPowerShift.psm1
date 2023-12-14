@@ -29,11 +29,17 @@ function log($message, $warning = $false) {
 
 function GetToken() {
     $uri = "$($this.IAMUrl)/auth/realms/$($this.Tenant)/protocol/openid-connect/token"
-    $body = @{
-        client_id = "ast-app"
-        refresh_token = (Plaintext($this.APIKey))
-        grant_type = "refresh_token"
-    } 
+    $body = @{}
+    if ($null -ne $this.APIKey) {
+        $body["client_id"] = "ast-app"
+        $body["refresh_token"] = (Plaintext($this.APIKey))
+        $body["grant_type"] = "refresh_token"
+    } else {
+        $body["client_id"] = $this.ClientID
+        $body["client_secret"] = (Plaintext($this.ClientSecret))
+        $body["grant_type"] = "client_credentials"
+    }
+
     try  {
         $resp = $null
         if ( $this.Proxy -eq "" ) {
@@ -96,7 +102,6 @@ function req($uri, $method, $client, $errorMessage, $body, $proxy){
 
 function makeURI( $base, [hashtable]$params ) {
     $q = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
-    
     foreach ($key in $params.Keys)
     {
         $q.Add($key, $params.$key)
@@ -156,7 +161,16 @@ function IAMGet {
     $uri = makeURI "$($this.IAMURL)/$base/realms/$($this.Tenant)/$api" $query
     return req $uri "GET" $this $errorMessage "" $this.Proxy
 } 
-
+function IAMPut {
+    param(
+        [Parameter(Mandatory=$true)][string]$base,
+        [Parameter(Mandatory=$true)][string]$api,
+        [Parameter(Mandatory=$true)][hashtable]$query,
+        [Parameter(Mandatory=$true)][hashtable]$body
+    )
+    $uri = makeURI "$($this.IAMURL)/$base/realms/$($this.Tenant)/$api" $query
+    return req $uri "PUT" $this $errorMessage $body $this.Proxy
+} 
 function shorten($str) {
     return $str.Substring(0,4) +".."+ $str.Substring($str.length - 4)
 }
@@ -597,6 +611,18 @@ function Get-Clients() {
     return $this.IAMGet( "auth/admin", "clients", $params, "Failed to get clients (client id: $clientID)" )
 }
 
+function Update-ClientAttributes() {
+    param (
+        [Parameter(Mandatory=$true)][string]$ID,
+        [Parameter(Mandatory=$true)][hashtable]$attributes
+    )
+
+    $params = @{
+        attributes = $attributes
+    }
+
+    return $this.IAMPut( "auth/admin", "clients/$ID", @{}, $params )
+}
 function Get-RoleMappings() {
     param (
         [Parameter(Mandatory=$false)][string]$userID = ""
@@ -647,14 +673,17 @@ function Get-TenantInfo() {
 # API-calls above this line
 ###########################
 
-function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
+function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_secret, $proxy ) {
     try  {
         $client = [PSCustomObject]@{
             Cx1URL = $cx1url
             IAMURL = $iamurl
             Tenant = $tenant
             TenantID = ""
-            APIKey = ConvertTo-SecureString $apikey -AsPlainText -Force 
+            #APIKey = ConvertTo-SecureString $apikey -AsPlainText -Force 
+            APIKey = $null
+            ClientID = $client_id
+            ClientSecret = $null
             Token = (New-Object System.Security.SecureString)
             Proxy = $proxy
             Expiry = (Get-Date)
@@ -663,6 +692,12 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
                 Roles = @{}
                 RoleComposites = @{}
             }
+        }
+
+        if ( $apikey -ne "" -and $apikey -ne $null ) {
+            $client.APIKey = ConvertTo-SecureString $apikey -AsPlainText -Force 
+        } else {
+            $client.ClientSecret = ConvertTo-SecureString $client_secret -AsPlainText -Force 
         }
 
         if ( $proxy -ne "" ) {
@@ -695,6 +730,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "Cx1Post" -Value ${function:Cx1Post}
         $client | Add-Member ScriptMethod -name "Cx1Patch" -Value ${function:Cx1Patch}
         $client | Add-Member ScriptMethod -name "IAMGet" -Value ${function:IAMGet}
+        $client | Add-Member ScriptMethod -name "IAMPut" -Value ${function:IAMPut}
 
         $client | Add-Member ScriptMethod -name "CreateApplication" -Value ${function:New-Application}
         $client | Add-Member ScriptMethod -name "GetApplications" -Value ${function:Get-Applications}
@@ -737,6 +773,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $proxy ) {
         $client | Add-Member ScriptMethod -name "GetGroupByName" -Value ${function:Get-GroupByName}
         
         $client | Add-Member ScriptMethod -name "GetClients" -Value ${function:Get-Clients}
+        $client | Add-Member ScriptMethod -name "UpdateClientAttributes" -Value ${function:Update-ClientAttributes}
         $client | Add-Member ScriptMethod -name "GetIAMRoles" -Value ${function:Get-IAMRoles}
         $client | Add-Member ScriptMethod -name "GetClientRoles" -Value ${function:Get-ClientRoles}
         $client | Add-Member ScriptMethod -name "GetGroupRoles" -Value ${function:Get-GroupRoles}

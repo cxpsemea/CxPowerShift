@@ -129,7 +129,7 @@ $report.CxXMLResults.Query | foreach-object {
 
 Write-Host "There were $($findings.length) findings parsed from $xmlreport"
 
-$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey $proxy
+$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" "" $proxy
 
 $scan = $cx1client.GetScan( $Cx1ScanID )
 $Cx1ProjectID = $scan.metadata.project.id

@@ -7,7 +7,7 @@ param(
 
 Import-Module .\CxPowerShift
 
-$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey ""
+$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey "" "" ""
 
 
 Write-Host ($cx1client.ToString())
