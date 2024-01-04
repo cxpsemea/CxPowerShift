@@ -613,10 +613,11 @@ function Get-Clients() {
 
 function Update-Client() {
     param (
-        [Parameter(Mandatory=$true)][hashtable]$client
+        [Parameter(Mandatory=$true)][pscustomobject]$client
     )
 
-    return $this.IAMPut( "auth/admin", "clients/$($client.id)", @{}, $client )
+    $clienthash = $client | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashTable -Depth 20
+    return $this.IAMPut( "auth/admin", "clients/$($client.id)", @{}, $clienthash )
 }
 function Get-RoleMappings() {
     param (
