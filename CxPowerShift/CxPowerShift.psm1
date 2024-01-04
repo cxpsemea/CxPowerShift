@@ -611,17 +611,13 @@ function Get-Clients() {
     return $this.IAMGet( "auth/admin", "clients", $params, "Failed to get clients (client id: $clientID)" )
 }
 
-function Update-ClientAttributes() {
+function Update-Client() {
     param (
-        [Parameter(Mandatory=$true)][string]$ID,
-        [Parameter(Mandatory=$true)][hashtable]$attributes
+        [Parameter(Mandatory=$true)][pscustomobject]$client
     )
 
-    $params = @{
-        attributes = $attributes
-    }
-
-    return $this.IAMPut( "auth/admin", "clients/$ID", @{}, $params )
+    $clienthash = $client | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashTable -Depth 20
+    return $this.IAMPut( "auth/admin", "clients/$($client.id)", @{}, $clienthash )
 }
 function Get-RoleMappings() {
     param (
@@ -773,7 +769,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "GetGroupByName" -Value ${function:Get-GroupByName}
         
         $client | Add-Member ScriptMethod -name "GetClients" -Value ${function:Get-Clients}
-        $client | Add-Member ScriptMethod -name "UpdateClientAttributes" -Value ${function:Update-ClientAttributes}
+        $client | Add-Member ScriptMethod -name "UpdateClient" -Value ${function:Update-Client}
         $client | Add-Member ScriptMethod -name "GetIAMRoles" -Value ${function:Get-IAMRoles}
         $client | Add-Member ScriptMethod -name "GetClientRoles" -Value ${function:Get-ClientRoles}
         $client | Add-Member ScriptMethod -name "GetGroupRoles" -Value ${function:Get-GroupRoles}
