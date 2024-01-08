@@ -3,7 +3,7 @@
   CheckmarxOne REST API client in Powershell
 
  .Description
-  A client that can be used to connect to and manipulate a CheckmarxOne environment via REST API
+  A client that can be used to connect to and manipulate a CheckmarxOne environment via REST API. Some parts require Powershell 6+.
 
  .Example
    # Connect to a specific Cx1 instance using an API key
