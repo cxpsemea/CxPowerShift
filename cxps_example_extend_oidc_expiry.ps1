@@ -2,6 +2,7 @@ param(
     $cx1url,
     $iamurl,
     $tenant,
+    $apikey,
     $clientid,
     $clientsecret,
     $targetClientId,
@@ -10,7 +11,7 @@ param(
 
 Import-Module .\CxPowerShift
 
-$cx1client = NewCx1Client $cx1url $iamurl $tenant $null $clientid $clientsecret ""
+$cx1client = NewCx1Client $cx1url $iamurl $tenant $apikey $clientid $clientsecret ""
 
 $clients = $cx1client.GetClients()
 

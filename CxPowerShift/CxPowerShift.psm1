@@ -211,6 +211,12 @@ function Get-Applications {
     if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get("applications/", $params,  "Failed to get applications" )
 }
+function Get-ApplicationByID {
+    param(
+        [Parameter(Mandatory=$true)][string]$ID
+    )
+    return $this.Cx1Get("applications/$ID", @{},  "Failed to get application with ID $ID" )
+}
 function Remove-Application( $id ) {
     return $this.Cx1Delete( "applications/$id", "Failed to delete application" )
 }
@@ -239,6 +245,15 @@ function Get-Projects {
     if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get("projects/", $params,  "Failed to get projects" )
 }
+
+function Get-ProjectByID {
+    param(
+        [Parameter(Mandatory=$true)][string]$ID
+    )
+
+    return $this.Cx1Get("projects/$ID", @{},  "Failed to get project with ID $ID" )
+}
+
 function Remove-Project( $id ) {
     return $this.Cx1Delete( "projects/$id", "Failed to delete application" )
 }
@@ -730,10 +745,12 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
 
         $client | Add-Member ScriptMethod -name "CreateApplication" -Value ${function:New-Application}
         $client | Add-Member ScriptMethod -name "GetApplications" -Value ${function:Get-Applications}
+        $client | Add-Member ScriptMethod -name "GetApplicationByID" -Value ${function:Get-ApplicationByID}
         $client | Add-Member ScriptMethod -name "DeleteApplication" -Value ${function:Remove-Application}
         
         $client | Add-Member ScriptMethod -name "CreateProject" -Value ${function:New-Project}
         $client | Add-Member ScriptMethod -name "GetProjects" -Value ${function:Get-Projects}
+        $client | Add-Member ScriptMethod -name "GetProjectByID" -Value ${function:Get-ProjectByID}
         $client | Add-Member ScriptMethod -name "DeleteProject" -Value ${function:Remove-Project}
         $client | Add-Member ScriptMethod -name "GetProjectConfiguration" -Value ${function:Get-ProjectConfiguration}
         $client | Add-Member ScriptMethod -name "GetPresets" -Value ${function:Get-Presets}
