@@ -95,6 +95,7 @@ if ( $appName -ne "" ) {
 } elseif ( $projName -ne "" ) {
     $appIds = @()
     foreach ( $proj in $projects ) {
+        $proj = $cx1client.GetProjectByID($proj.id)
         foreach ($appId in $proj.applicationIds) {
             if ( -Not $appIds.Contains($appId) ) {
                 $appIds += $appId
