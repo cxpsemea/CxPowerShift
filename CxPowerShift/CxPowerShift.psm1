@@ -971,17 +971,21 @@ function Get-DecomposedRoles() {
     )
 
     $subRoles = [array]$this.GetRoleComposites( $roleID )
-    $roles = @()
+    $final_roles = @()
 
     foreach ( $subrole in $subRoles ) {
         if ( $subrole.composite ) {
-            $roles += $this.GetDecomposedRoles( $subrole.id )
+            $roles = $this.GetDecomposedRoles( $subrole.id )
+            $final_roles += $subrole
+            $final_roles = MergeRoleArrays( $final_roles, $roles )
         } else {
-            $roles += $subrole
+            if ( -Not (ArrayContainsRole $final_roles $subrole) ) {
+                $final_roles += $subrole
+            }
         }
     }
 
-    return $roles
+    return $final_roles
 }
 
 function ArrayContainsRole( $array, $role ) {
