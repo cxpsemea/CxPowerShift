@@ -262,6 +262,8 @@ if ( $newIAM ) {
                 foreach ( $role in $roles | Sort-Object -Property "name" ) {
                     Write-Output "`t`t- $($role.name) ($($role.id))"   
                 }
+            } else {
+                Write-Output "`tNo specific application-level permissions."
             }
         }
 
@@ -324,6 +326,8 @@ if ( $newIAM ) {
                 foreach ( $role in $roles | Sort-Object -Property "name" ) {
                     Write-Output "`t`t- $($role.name) ($($role.id))"   
                 }
+            } else {
+                Write-Output "`tNo specific project-level permissions."
             }
         }
     }
