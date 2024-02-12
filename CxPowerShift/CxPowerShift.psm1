@@ -203,10 +203,12 @@ function New-Application {
 function Get-Applications {
     param(
         [Parameter(Mandatory=$false)][int]$limit = 10,
+        [Parameter(Mandatory=$false)][int]$offset = 10,
         [Parameter(Mandatory=$false)][string]$name = ""
     )
     $params = @{
         limit = $limit
+        offset = $offset
     }
     if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get("applications/", $params,  "Failed to get applications" )
@@ -237,10 +239,12 @@ function New-Project {
 function Get-Projects {
     param(
         [Parameter(Mandatory=$false)][int]$limit = 10,
+        [Parameter(Mandatory=$false)][int]$offset = 10,
         [Parameter(Mandatory=$false)][string]$name = ""
     )
     $params = @{
         limit = $limit
+        offset = $offset
     }
     if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get("projects/", $params,  "Failed to get projects" )
