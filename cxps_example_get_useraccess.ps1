@@ -82,16 +82,16 @@ if ( $projName -eq "" ) {
     $projectCount = $cx1client.GetProjects(0).totalCount
     $projects = $cx1client.GetProjects($projectCount).projects
 } else {
-    $projectCount = $cx1client.GetProjects(0, $projName).totalCount
-    $projects = $cx1client.GetProjects($projectCount, $projName).projects
+    $projectCount = $cx1client.GetProjects(0, 0, $projName).totalCount
+    $projects = $cx1client.GetProjects($projectCount, 0, $projName).projects
 }
 
 Write-Output "There are $($projects.length) projects in scope"
 
 # Get In-Scope applications
 if ( $appName -ne "" ) {
-    $applicationCount = $cx1client.GetApplications(0,$appName).totalCount
-    $applications = $cx1client.GetApplications($applicationCount,$appName).applications
+    $applicationCount = $cx1client.GetApplications(0,0,$appName).totalCount
+    $applications = $cx1client.GetApplications($applicationCount,0,$appName).applications
 } elseif ( $projName -ne "" ) {
     $appIds = @()
     foreach ( $proj in $projects ) {
