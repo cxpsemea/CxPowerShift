@@ -203,10 +203,12 @@ function New-Application {
 function Get-Applications {
     param(
         [Parameter(Mandatory=$false)][int]$limit = 10,
+        [Parameter(Mandatory=$false)][int]$offset = 10,
         [Parameter(Mandatory=$false)][string]$name = ""
     )
     $params = @{
         limit = $limit
+        offset = $offset
     }
     if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get("applications/", $params,  "Failed to get applications" )
@@ -237,10 +239,12 @@ function New-Project {
 function Get-Projects {
     param(
         [Parameter(Mandatory=$false)][int]$limit = 10,
+        [Parameter(Mandatory=$false)][int]$offset = 10,
         [Parameter(Mandatory=$false)][string]$name = ""
     )
     $params = @{
         limit = $limit
+        offset = $offset
     }
     if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get("projects/", $params,  "Failed to get projects" )
@@ -335,6 +339,50 @@ function Get-ScanSASTMetadata($id) {
 function Get-ScanSASTEngineLog($id) {
     return $this.Cx1Get("logs/$id/sast", @{}, "Failed to get scan sast enginelogs" )
 }
+
+function Get-Queries {
+    param(
+        [Parameter(Mandatory=$false)][string]$projectId = ""
+    )
+
+    $params = @{}
+    if ( $projectId -ne "" ) {
+        $params.Add( "projectId", $projectId )
+        return $this.Cx1Get("cx-audit/queries", $params, "Failed to get queries for project ID $projectId") 
+    } else {
+        return $this.Cx1Get("cx-audit/queries", $params, "Failed to get queries")
+    }     
+}
+
+function Get-Query {
+    param(
+        [Parameter(Mandatory=$true)][string]$level,
+        [Parameter(Mandatory=$true)][string]$path
+    )
+
+    if ( $path -match "/" ) {
+        $path = $path.Replace( "/", "%2f" )
+    }
+    
+    return $this.Cx1Get( "cx-audit/queries/$level/$path", @{}, "Failed to get query $path on level $level" )
+}
+
+function Delete-Query {
+    param(
+        [Parameter(Mandatory=$true)][string]$level,
+        [Parameter(Mandatory=$true)][string]$path
+    )
+
+    if ( $path -match "/" ) {
+        $path = $path.Replace( "/", "%2f" )
+    }
+
+    return $this.Cx1Delete( "cx-audit/queries/$level/$path", "Failed to delete query $path on level $level" )
+}
+
+function Get-QueryMappings {
+    return $this.Cx1Get( "queries/mappings", @{}, "Failed to get query mappings" )
+} 
 
 function Get-Results() {
     param(
@@ -770,6 +818,10 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
 
         $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
         $client | Add-Member ScriptMethod -name "AddResultPredicate" -Value ${function:Add-ResultPredicate}
+        $client | Add-Member ScriptMethod -name "GetQueries" -Value ${function:Get-Queries}
+        $client | Add-Member ScriptMethod -name "GetQuery" -Value ${function:Get-Query}
+        $client | Add-Member ScriptMethod -name "DeleteQuery" -Value ${function:Delete-Query}
+        $client | Add-Member ScriptMethod -name "GetQueryMappings" -Value ${function:Get-QueryMappings}
 
         $client | Add-Member ScriptMethod -name "SetShowErrors" -Value ${function:Set-ShowErrors}
 
@@ -1078,6 +1130,21 @@ function Get-ConfigurationValue( $config, $key ) {
     return ""
 }
 
+function SeverityToString( $sev ) {
+    if ( $sev -eq 0 ) {
+        return "INFO"
+    } elseif ( $sev -eq 1 ) {
+        return "LOW"
+    } elseif ( $sev -eq 2 ) {
+        return "MEDIUM"
+    } elseif ( $sev -eq 3 ) {
+        return "HIGH"
+    } elseif ( $sev -eq 4 ) {
+        return "CRITICAL"
+    } else {
+        return "??"
+    }
+}
 
 
 # functions to interact directly with the API will be exposed via the returned client object
@@ -1085,3 +1152,5 @@ Export-ModuleMember -Function NewCx1Client
 
 # convenience functions to do stuff with the returned data will be exposed directly
 Export-ModuleMember -Function Get-ConfigurationValue
+
+Export-ModuleMember -Function SeverityToString
