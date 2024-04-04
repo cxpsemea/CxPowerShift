@@ -203,7 +203,7 @@ function New-Application {
 function Get-Applications {
     param(
         [Parameter(Mandatory=$false)][int]$limit = 10,
-        [Parameter(Mandatory=$false)][int]$offset = 10,
+        [Parameter(Mandatory=$false)][int]$offset = 0,
         [Parameter(Mandatory=$false)][string]$name = ""
     )
     $params = @{
