@@ -141,6 +141,16 @@ function Cx1Post {
     return req $uri "POST" $this $errorMessage $body $this.Proxy
 }
 
+function Cx1Put {
+    param(
+        [Parameter(Mandatory=$true)][string]$api,
+        [Parameter(Mandatory=$false)]$body,
+        [Parameter(Mandatory=$false)][string]$errorMessage = "error putting $uri"
+    )
+    $uri = "$($this.Cx1URL)/api/$api"
+    return req $uri "PUT" $this $errorMessage $body $this.Proxy
+}
+
 function Cx1Patch {
     param(
         [Parameter(Mandatory=$true)][string]$api,
@@ -221,6 +231,14 @@ function Get-ApplicationByID {
 }
 function Remove-Application( $id ) {
     return $this.Cx1Delete( "applications/$id", "Failed to delete application" )
+}
+function Update-Application() {
+    param (
+        [Parameter(Mandatory=$true)][pscustomobject]$application
+    )
+
+    $apphash = $application | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashTable -Depth 20
+    return $this.Cx1Put( "applications/$($application.id)", $apphash, "failed to update application $($application.id)" )
 }
 
 function New-Project {
@@ -733,6 +751,11 @@ function Get-TenantInfo() {
 ###########################
 
 function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_secret, $proxy ) {
+    if ( $PSVersionTable.PSVersion.Major  -lt 7 ) {
+        log "This module requires powershell version greater than 7.0 to function correctly, you have $($PSVersionTable.PSVersion)"
+        throw "Powershell version 7.0 or greater required"
+    }
+
     try  {
         $client = [PSCustomObject]@{
             Cx1URL = $cx1url
@@ -787,6 +810,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "Cx1Get" -Value ${function:Cx1Get}
         $client | Add-Member ScriptMethod -name "Cx1Delete" -Value ${function:Cx1Delete}
         $client | Add-Member ScriptMethod -name "Cx1Post" -Value ${function:Cx1Post}
+        $client | Add-Member ScriptMethod -name "Cx1Put" -Value ${function:Cx1Put}
         $client | Add-Member ScriptMethod -name "Cx1Patch" -Value ${function:Cx1Patch}
         $client | Add-Member ScriptMethod -name "IAMGet" -Value ${function:IAMGet}
         $client | Add-Member ScriptMethod -name "IAMPut" -Value ${function:IAMPut}
@@ -795,6 +819,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "GetApplications" -Value ${function:Get-Applications}
         $client | Add-Member ScriptMethod -name "GetApplicationByID" -Value ${function:Get-ApplicationByID}
         $client | Add-Member ScriptMethod -name "DeleteApplication" -Value ${function:Remove-Application}
+        $client | Add-Member ScriptMethod -name "UpdateApplication" -Value ${function:Update-Application}
         
         $client | Add-Member ScriptMethod -name "CreateProject" -Value ${function:New-Project}
         $client | Add-Member ScriptMethod -name "GetProjects" -Value ${function:Get-Projects}
