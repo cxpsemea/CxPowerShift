@@ -744,6 +744,31 @@ function Get-RoleMappings() {
     return $this.IAMGet( "auth/admin", "users/$userID/role-mappings/", @{}, "Failed to get role mappings for userID $userID" )
 }
 
+
+function Add-ResourceEntityAssignment() {
+    param (
+        [Parameter(Mandatory=$true)][string]$resourceID,
+        [Parameter(Mandatory=$true)][string]$resourceType,
+        [Parameter(Mandatory=$true)][string]$entityID,
+        [Parameter(Mandatory=$true)][string]$entityType, 
+        [Parameter(Mandatory=$false)][array]$roles = @() # a list of names of roles
+    )
+
+    $params = @{
+        "entityID" = $entityID
+        "entityType" = $entityType
+        "entityRoles" = $entityRoles
+        "resourceID" = $resourceID
+        "resourceType" = $resourceType
+    }
+
+    if ( $null -eq $params.entityRoles ) {
+        $params.entityRoles = @()
+    }
+
+    return $this.Cx1Post( "access-management", $params, "Failed to add access assignment between entity $entityID and resource $resourceID" )
+}
+
 function Get-ResourceEntityAssignment() {
     param (
         [Parameter(Mandatory=$true)][string]$resourceID,
@@ -757,6 +782,16 @@ function Get-ResourceEntityAssignment() {
 
     return $this.Cx1Get( "access-management", $params, "Failed to get access assignment between entity $entityID and resource $resourceID" )
 }
+
+function Remove-ResourceEntityAssignment() {
+    param (
+        [Parameter(Mandatory=$true)][string]$resourceID,
+        [Parameter(Mandatory=$true)][string]$entityID
+    )
+
+    return $this.Cx1Delete( "access-management?entity-id=$entityID&resource-id=$resourceID", "Failed to delete access assignment between entity $entityID and resource $resourceID" )
+}
+
 
 function Get-ResourcesAccessibleToEntity() {
     param (
@@ -930,7 +965,9 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "GetDecomposedRoles" -Value ${function:Get-DecomposedRoles}
         $client | Add-Member ScriptMethod -name "GetUserPermissions" -Value ${function:Get-UserPermissions}
 
+        $client | Add-Member ScriptMethod -name "AddResourceEntityAssignment" -Value ${function:Add-ResourceEntityAssignment}
         $client | Add-Member ScriptMethod -name "GetResourceEntityAssignment" -Value ${function:Get-ResourceEntityAssignment}
+        $client | Add-Member ScriptMethod -name "RemoveResourceEntityAssignment" -Value ${function:Remove-ResourceEntityAssignment}
         $client | Add-Member ScriptMethod -name "GetResourcesAccessibleToEntity" -Value ${function:Get-ResourcesAccessibleToEntity}
         $client | Add-Member ScriptMethod -name "GetEntitiesWithAccessToResource" -Value ${function:Get-EntitiesWithAccessToResource}
 

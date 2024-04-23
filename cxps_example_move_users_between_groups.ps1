@@ -27,8 +27,24 @@ function ChangeAccessAssignment() {
     if ( $newIAM ) {
         Write-Output "`n=================================`n"
         Write-Output "New access management is enabled, checking for assigned access permissions.`n"
-        $assignments = $cx1client.GetResourcesAccessibleToEntity( $sourceGroupID )
-        Write-Output "The following access assignments exist for this user: $assignments"
+        $assignments = $cx1client.GetResourcesAccessibleToEntity( $sourceGroupID, "group" )
+        $cx1client.SetShowErrors( $false )
+        Write-Output "The following access assignments exist for this user:"
+        foreach ( $assignment in $assignments ) {
+            Write-Output "Updating assignment to $($assignment.type) [$($assignment.id)] from groups $sourceGroupID to $destGroupID"
+            try {
+                $ret = $cx1client.AddResourceEntityAssignment( $assignment.id, $assignment.type, $destGroupID, "group", $assignment.roles )
+            } catch {
+                Write-Output "Failed to add a resource-entity assignment"          
+            }
+            Write-Output "Removing original assignment to $($assignment.type) [$($assignment.id)] for group $sourceGroupID"
+            try {
+                $ret = $cx1client.RemoveResourceEntityAssignment( $assignment.id, $sourceGroupID )
+            } catch {
+                Write-Output "Failed to remove a resource-entity assignment"          
+            }
+        }
+        $cx1client.SetShowErrors( $true )
         Write-Output "`n=================================`n"
     } else {
         Write-Output "hmm..."
@@ -54,9 +70,9 @@ try {
     $sourceUsers = $cx1client.GetGroupMembers( $sourceGroup.id )
     foreach ( $user in $sourceUsers ) {
         Write-Output "Adding user $($user.email) [$($user.id)] to destination group $destGroupName"
-        #$ret = $cx1client.AddUserToGroup( $user.id, $destGroup.id )
+        $ret = $cx1client.AddUserToGroup( $user.id, $destGroup.id )
         Write-Output "Removing user $($user.email) [$($user.id)] from source group $sourceGroupName"
-        #$ret = $cx1client.RemoveUserFromGroup( $user.id, $sourceGroup.id )
+        $ret = $cx1client.RemoveUserFromGroup( $user.id, $sourceGroup.id )
     }
 
     ChangeAccessAssignment $sourceGroup.id $destGroup.id
