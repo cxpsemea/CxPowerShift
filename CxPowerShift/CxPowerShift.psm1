@@ -181,6 +181,16 @@ function IAMPut {
     $uri = makeURI "$($this.IAMURL)/$base/realms/$($this.Tenant)/$api" $query
     return req $uri "PUT" $this $errorMessage $body $this.Proxy
 } 
+
+function IAMDelete {
+    param(
+        [Parameter(Mandatory=$true)][string]$base,
+        [Parameter(Mandatory=$true)][string]$api
+    )
+    $uri = makeURI "$($this.IAMURL)/$base/realms/$($this.Tenant)/$api"
+    return req $uri "DELETE" $this $errorMessage "" $this.Proxy
+} 
+
 function shorten($str) {
     return $str.Substring(0,4) +".."+ $str.Substring($str.length - 4)
 }
@@ -518,6 +528,24 @@ function Get-UserGroups() {
     return $this.IAMGet( "auth/admin", "users/$userID/groups", @{}, "Error getting a list of groups assigned to user $userID" )
 }
 
+function Add-UserToGroup() {
+    param (
+        [Parameter(Mandatory=$true)][string]$userID,
+        [Parameter(Mandatory=$true)][string]$groupID
+    )
+
+    return $this.IAMPut( "auth/admin", "users/$userID/groups/$groupID", @{}, @{}, "Error adding user $userID to group $groupID" )
+}
+
+function Remove-UserFromGroup() {
+    param (
+        [Parameter(Mandatory=$true)][string]$userID,
+        [Parameter(Mandatory=$true)][string]$groupID
+    )
+
+    return $this.IAMDelete( "auth/admin", "users/$userID/groups/$groupID", @{}, "Error removing user $userID from group $groupID" )
+}
+
 function Get-Groups() {
     param (
         [Parameter(Mandatory=$false)][string]$search = ""
@@ -577,6 +605,14 @@ function Get-GroupRoles() {
     #Write-Host "Return $($roles.Length) roles"
     return $roles
     
+}
+
+function Get-GroupMembers() {
+    param (
+        [Parameter(Mandatory=$true)][string]$groupID
+    )
+    
+    return $this.IAMGet( "auth/admin", "groups/$groupID/members", @{}, "Error getting members for group ID $groupID" )
 }
 
 function Get-IAMRoles() {
@@ -708,6 +744,31 @@ function Get-RoleMappings() {
     return $this.IAMGet( "auth/admin", "users/$userID/role-mappings/", @{}, "Failed to get role mappings for userID $userID" )
 }
 
+
+function Add-ResourceEntityAssignment() {
+    param (
+        [Parameter(Mandatory=$true)][string]$resourceID,
+        [Parameter(Mandatory=$true)][string]$resourceType,
+        [Parameter(Mandatory=$true)][string]$entityID,
+        [Parameter(Mandatory=$true)][string]$entityType, 
+        [Parameter(Mandatory=$false)][array]$roles = @() # a list of names of roles
+    )
+
+    $params = @{
+        "entityID" = $entityID
+        "entityType" = $entityType
+        "entityRoles" = $entityRoles
+        "resourceID" = $resourceID
+        "resourceType" = $resourceType
+    }
+
+    if ( $null -eq $params.entityRoles ) {
+        $params.entityRoles = @()
+    }
+
+    return $this.Cx1Post( "access-management", $params, "Failed to add access assignment between entity $entityID and resource $resourceID" )
+}
+
 function Get-ResourceEntityAssignment() {
     param (
         [Parameter(Mandatory=$true)][string]$resourceID,
@@ -722,6 +783,16 @@ function Get-ResourceEntityAssignment() {
     return $this.Cx1Get( "access-management", $params, "Failed to get access assignment between entity $entityID and resource $resourceID" )
 }
 
+function Remove-ResourceEntityAssignment() {
+    param (
+        [Parameter(Mandatory=$true)][string]$resourceID,
+        [Parameter(Mandatory=$true)][string]$entityID
+    )
+
+    return $this.Cx1Delete( "access-management?entity-id=$entityID&resource-id=$resourceID", "Failed to delete access assignment between entity $entityID and resource $resourceID" )
+}
+
+
 function Get-ResourcesAccessibleToEntity() {
     param (
         [Parameter(Mandatory=$true)][string]$entityID,
@@ -734,6 +805,18 @@ function Get-ResourcesAccessibleToEntity() {
         "resource-types" = $resourceTypes
     }
     return $this.Cx1Get( "access-management/resources-for", $params, "Failed to get $resourceTypes resources accessible to $entityType $entityID" )
+}
+
+function Get-EntitiesWithAccessToResource() {
+    param (
+        [Parameter(Mandatory=$true)][string]$resourceID,
+        [Parameter(Mandatory=$false)][string]$resourceType = "tenant"
+    )
+    $params = @{
+        "resource-id" = $resourceID
+        "resource-type" = $resourceType
+    }
+    return $this.Cx1Get( "access-management/entities-for", $params, "Failed to get entities with access to $resourceType $resourceID" )
 }
 
 function Get-Flags() {
@@ -814,6 +897,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "Cx1Patch" -Value ${function:Cx1Patch}
         $client | Add-Member ScriptMethod -name "IAMGet" -Value ${function:IAMGet}
         $client | Add-Member ScriptMethod -name "IAMPut" -Value ${function:IAMPut}
+        $client | Add-Member ScriptMethod -name "IAMDelete" -Value ${function:IAMDelete}
 
         $client | Add-Member ScriptMethod -name "CreateApplication" -Value ${function:New-Application}
         $client | Add-Member ScriptMethod -name "GetApplications" -Value ${function:Get-Applications}
@@ -856,11 +940,15 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "GetUserByEmail" -Value ${function:Get-UserByEmail}
         $client | Add-Member ScriptMethod -name "GetUserByID" -Value ${function:Get-UserByID}
         
+        $client | Add-Member ScriptMethod -name "AddUserToGroup" -Value ${function:Add-UserToGroup}
+        $client | Add-Member ScriptMethod -name "RemoveUserFromGroup" -Value ${function:Remove-UserFromGroup}
+        
         $client | Add-Member ScriptMethod -name "GetUserGroups" -Value ${function:Get-UserGroups}
         $client | Add-Member ScriptMethod -name "GetUserInheritedGroups" -Value ${function:Get-UserInheritedGroups}
         $client | Add-Member ScriptMethod -name "GetGroupsFlat" -Value ${function:Get-GroupsFlat}
         $client | Add-Member ScriptMethod -name "GetGroups" -Value ${function:Get-Groups}
         $client | Add-Member ScriptMethod -name "GetGroupByName" -Value ${function:Get-GroupByName}
+        $client | Add-Member ScriptMethod -name "GetGroupMembers" -Value ${function:Get-GroupMembers}
         
         $client | Add-Member ScriptMethod -name "GetClients" -Value ${function:Get-Clients}
         $client | Add-Member ScriptMethod -name "UpdateClient" -Value ${function:Update-Client}
@@ -877,8 +965,11 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "GetDecomposedRoles" -Value ${function:Get-DecomposedRoles}
         $client | Add-Member ScriptMethod -name "GetUserPermissions" -Value ${function:Get-UserPermissions}
 
+        $client | Add-Member ScriptMethod -name "AddResourceEntityAssignment" -Value ${function:Add-ResourceEntityAssignment}
         $client | Add-Member ScriptMethod -name "GetResourceEntityAssignment" -Value ${function:Get-ResourceEntityAssignment}
+        $client | Add-Member ScriptMethod -name "RemoveResourceEntityAssignment" -Value ${function:Remove-ResourceEntityAssignment}
         $client | Add-Member ScriptMethod -name "GetResourcesAccessibleToEntity" -Value ${function:Get-ResourcesAccessibleToEntity}
+        $client | Add-Member ScriptMethod -name "GetEntitiesWithAccessToResource" -Value ${function:Get-EntitiesWithAccessToResource}
 
         $client | Add-Member ScriptMethod -name "GetFlags" -Value ${function:Get-Flags}
         $client | Add-Member ScriptMethod -name "GetTenantInfo" -Value ${function:Get-TenantInfo}
