@@ -5,7 +5,8 @@ param(
     $apikey,
     $proxy,
     $sourceGroupName,
-    $destGroupName
+    $destGroupName,
+    $resourceTypes = "tenant,application,project"
 )
 
 Import-Module .\CxPowerShift
@@ -27,7 +28,7 @@ function ChangeAccessAssignment() {
     if ( $newIAM ) {
         Write-Output "`n=================================`n"
         Write-Output "New access management is enabled, checking for assigned access permissions.`n"
-        $assignments = $cx1client.GetResourcesAccessibleToEntity( $sourceGroupID, "group" )
+        $assignments = $cx1client.GetResourcesAccessibleToEntity( $sourceGroupID, "group", $resourceTypes )
         $cx1client.SetShowErrors( $false )
         Write-Output "The following access assignments exist for this user:"
         foreach ( $assignment in $assignments ) {
