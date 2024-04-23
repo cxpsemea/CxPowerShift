@@ -567,6 +567,14 @@ function Get-GroupByName() {
     return FindGroupInHierarchy $groups $search 
 }
 
+function Get-GroupByID() {
+    param (
+        [Parameter(Mandatory=$true)][string]$groupID
+    )
+
+    return $this.IAMGet( "auth/admin", "groups/$groupID", @{}, "Error getting group info for group with ID $groupID" )
+}
+
 function Get-GroupRoles() {
     param (
         [Parameter(Mandatory=$true)][string]$groupID
@@ -948,6 +956,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "GetGroupsFlat" -Value ${function:Get-GroupsFlat}
         $client | Add-Member ScriptMethod -name "GetGroups" -Value ${function:Get-Groups}
         $client | Add-Member ScriptMethod -name "GetGroupByName" -Value ${function:Get-GroupByName}
+        $client | Add-Member ScriptMethod -name "GetGroupByID" -Value ${function:Get-GroupByID}
         $client | Add-Member ScriptMethod -name "GetGroupMembers" -Value ${function:Get-GroupMembers}
         
         $client | Add-Member ScriptMethod -name "GetClients" -Value ${function:Get-Clients}
@@ -1203,7 +1212,23 @@ function Get-GroupsFlat() {
 
     $group = $this.IAMGet( "auth/admin", "groups/$groupID", @{}, "Error getting group info for group with ID $groupID" )
 
-    if ( $group.path -eq "/$($group.name)" ) { # no parent
+    # the response will include the full hierarchy up to the root team
+    $groups = @()
+
+    $g = $group
+    while ( $null -ne $g ) {
+        $groups += $g
+        if ( $g.subGroups.length -gt 0 ) {
+            $g = $g.subGroups[0]
+        } else {
+            $g = $null
+        }
+    }
+
+    return $groups
+
+
+    <#if ( $group.path -eq "/$($group.name)" ) { # no parent
         return @( $group )
     } else {
         $groups = @()
@@ -1219,7 +1244,7 @@ function Get-GroupsFlat() {
         }
 
         return $groups
-    }
+    }#>
 }
 
 function FindGroupInHierarchy( $groups, $target ) {
