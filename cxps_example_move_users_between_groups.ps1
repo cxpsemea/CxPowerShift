@@ -47,7 +47,7 @@ function ChangeAccessAssignment() {
         $cx1client.SetShowErrors( $true )
         Write-Output "`n=================================`n"
     } else {
-        Write-Output "hmm..."
+        Write-Output "New access management is not enabled, no further actions taken."
     }
 }
 
