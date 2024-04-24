@@ -567,6 +567,14 @@ function Get-GroupByName() {
     return FindGroupInHierarchy $groups $search 
 }
 
+function Get-GroupByPath() {
+    param (
+        [Parameter(Mandatory=$true)][string]$path
+    )
+ 
+    return $this.IAMGet( "auth/admin", "group-by-path/$path", @{}, "Error getting group info for group with path $path" )
+}
+
 function Get-GroupByID() {
     param (
         [Parameter(Mandatory=$true)][string]$groupID
@@ -957,6 +965,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "GetGroups" -Value ${function:Get-Groups}
         $client | Add-Member ScriptMethod -name "GetGroupByName" -Value ${function:Get-GroupByName}
         $client | Add-Member ScriptMethod -name "GetGroupByID" -Value ${function:Get-GroupByID}
+        $client | Add-Member ScriptMethod -name "GetGroupByPath" -Value ${function:Get-GroupByPath}
         $client | Add-Member ScriptMethod -name "GetGroupMembers" -Value ${function:Get-GroupMembers}
         
         $client | Add-Member ScriptMethod -name "GetClients" -Value ${function:Get-Clients}
@@ -1215,36 +1224,20 @@ function Get-GroupsFlat() {
     # the response will include the full hierarchy up to the root team
     $groups = @()
 
-    $g = $group
-    while ( $null -ne $g ) {
-        $groups += $g
-        if ( $g.subGroups.length -gt 0 ) {
-            $g = $g.subGroups[0]
-        } else {
-            $g = $null
+    $split_path = $group.path.Split( "/" )
+    $parent = ""
+    foreach ( $part in $split_path ) {
+        if ( $part -ne "" ) {
+            $path = "$($parent)/$part"
+            $pgroup = $this.GetGroupByPath( $path )
+            if ( $null -ne $pgroup ) {
+                $groups += $pgroup
+            }
         }
     }
 
     return $groups
-
-
-    <#if ( $group.path -eq "/$($group.name)" ) { # no parent
-        return @( $group )
-    } else {
-        $groups = @()
-
-        $split_path = $group.path.Split( "/" )
-        foreach ( $part in $split_path ) {
-            if ( $part -ne "" ) {
-                $subgroup = $this.GetGroupByName( $part )
-                if ( $null -ne $subgroup ) {
-                    $groups += $subgroup
-                }
-            }
-        }
-
-        return $groups
-    }#>
+    
 }
 
 function FindGroupInHierarchy( $groups, $target ) {
