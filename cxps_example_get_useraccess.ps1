@@ -148,16 +148,41 @@ if ( $newIAM ) {
         $cx1client.SetShowErrors($true)
         Write-Output "The following access assignments exist for this user: $assignments"
     } catch {
-        Write-Output "Error getting from /api/access-management/resources-for - iterating over all objects. This may take a while.`n"
-        
-        Write-Output "Tenant-level assignment for user $($targetUser.username):"
+        Write-Output "Error getting from /api/access-management/resources-for"
+    }
+
+    Write-Output "Iterating over all objects. This may take a while.`n"
+    
+    Write-Output "Tenant-level assignment for user $($targetUser.username):"
+    try {
+        $cx1client.SetShowErrors($false)
+        $access = $cx1client.GetResourceEntityAssignment( $cx1client.TenantID, $targetUser.id )            
+        $cx1client.SetShowErrors($true)
+        $roles = @()
+        if ( $access.entityRoles.length -gt 0 ) {
+            foreach ( $role in $access.entityRoles ) {
+                $temp_roles = @()
+                $roleObj = $cx1client.GetRoleByName($role.Name)
+                $temp_roles += $roleObj
+                if ( $roleObj.composite ) {
+                    $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                }
+                $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
+            }
+        } else {
+            Write-Output "`t- generic (no role) access assignment to tenant for user"
+        } 
+    } catch {
+        #Write-Output " - none"
+    }
+    foreach ( $group in $groups ) {
         try {
             $cx1client.SetShowErrors($false)
-            $access = $cx1client.GetResourceEntityAssignment( $cx1client.TenantID, $targetUser.id )            
+            $access = $cx1client.GetResourceEntityAssignment( $cx1client.TenantID, $group.id )            
             $cx1client.SetShowErrors($true)
-            $roles = @()
             if ( $access.entityRoles.length -gt 0 ) {
                 foreach ( $role in $access.entityRoles ) {
+                    #Write-Output "`t- $role (assignment through group $($group.name) ($($group.id)))"
                     $temp_roles = @()
                     $roleObj = $cx1client.GetRoleByName($role.Name)
                     $temp_roles += $roleObj
@@ -167,16 +192,56 @@ if ( $newIAM ) {
                     $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                 }
             } else {
-                Write-Output "`t- generic (no role) access assignment to tenant for user"
+                Write-Output "`t- generic (no role) access assignment to tenant through group $($group.name) ($($group.id)))"
             } 
+        } catch {
+            #Write-Output " - none"
+        }
+    }
+    if ( $roles.Length -gt 0 ) {
+        Write-Output "`tSpecific tenant permissions:"
+        foreach ( $role in $roles | Sort-Object -Property "name" ) {
+            Write-Output "`t`t- $($role.name) ($($role.id))"   
+        }
+    } else {
+        Write-Output " - none"
+    }
+
+    Write-Output "`nApplication-level assignments for user $($targetUser.username):"
+
+    $checkedApps = 0
+    foreach( $app in $applications ) {
+        $roles = @()
+        $checkedApps += 1
+        if ( $checkedApps % 10 -eq 0 ) {
+            Write-Output " - $checkedApps / $applicationCount apps"
+        }
+        try {
+            $cx1client.SetShowErrors($false)
+            $access = $cx1client.GetResourceEntityAssignment( $app.id, $targetUser.id )
+            $cx1client.SetShowErrors($true)
+            if ( $access.entityRoles.length -gt 0 ) {
+                foreach ( $role in $access.entityRoles ) {
+                    #Write-Output "`t`t- $role (direct user assignment)"
+                    $temp_roles = @()
+                    $roleObj = $cx1client.GetRoleByName($role.Name)
+                    $temp_roles += $roleObj
+                    if ( $roleObj.composite ) {
+                        $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                    }
+                    $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
+                }
+            } else {
+                Write-Output "`t- generic (no role) access assignment to $($app.name) ($($app.id)) for user"
+            }                
         } catch {
             #Write-Output " - none"
         }
         foreach ( $group in $groups ) {
             try {
                 $cx1client.SetShowErrors($false)
-                $access = $cx1client.GetResourceEntityAssignment( $cx1client.TenantID, $group.id )            
-                $cx1client.SetShowErrors($true)
+                $access = $cx1client.GetResourceEntityAssignment( $app.id, $group.id )  
+                $cx1client.SetShowErrors($true) 
                 if ( $access.entityRoles.length -gt 0 ) {
                     foreach ( $role in $access.entityRoles ) {
                         #Write-Output "`t- $role (assignment through group $($group.name) ($($group.id)))"
@@ -189,37 +254,59 @@ if ( $newIAM ) {
                         $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                     }
                 } else {
-                    Write-Output "`t- generic (no role) access assignment to tenant through group $($group.name) ($($group.id)))"
-                } 
+                    Write-Output "`t- generic (no role) access assignment to $($app.name) ($($app.id)) through group $($group.name) ($($group.id)))"
+                }  
             } catch {
                 #Write-Output " - none"
             }
         }
         if ( $roles.Length -gt 0 ) {
-            Write-Output "`tSpecific tenant permissions:"
+            Write-Output "`tSpecific application $($app.name) ($($app.id)) permissions:"
             foreach ( $role in $roles | Sort-Object -Property "name" ) {
                 Write-Output "`t`t- $($role.name) ($($role.id))"   
             }
         } else {
-            Write-Output " - none"
+            Write-Output "`tNo specific application-level permissions."
         }
+    }
 
-        Write-Output "`nApplication-level assignments for user $($targetUser.username):"
-
-        $checkedApps = 0
-        foreach( $app in $applications ) {
-            $roles = @()
-            $checkedApps += 1
-            if ( $checkedApps % 10 -eq 0 ) {
-                Write-Output " - $checkedApps / $applicationCount apps"
-            }
+    Write-Output "`nProject-level assignments for user $($targetUser.username):"
+    $checkedProjects = 0
+    foreach( $proj in $projects ) {
+        $roles = @()
+        $checkedProjects += 1
+        if ( $checkedProjects % 10 -eq 0 ) {
+            Write-Output " - $checkedProjects / $projectCount projects"
+        }
+        try {
+            $cx1client.SetShowErrors($false)
+            $access = $cx1client.GetResourceEntityAssignment( $proj.id, $targetUser.id )
+            $cx1client.SetShowErrors($true)
+            if ( $access.entityRoles.length -gt 0 ) {
+                foreach ( $role in $access.entityRoles ) {
+                    #Write-Output "`t`t- $role (direct user assignment)"
+                    $temp_roles = @()
+                    $roleObj = $cx1client.GetRoleByName($role.Name)
+                    $temp_roles += $roleObj
+                    if ( $roleObj.composite ) {
+                        $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
+                    }
+                    $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
+                }
+            } else {
+                Write-Output "`t- generic (no role) access assignment to $($proj.name) ($($proj.id)) for user"
+            }  
+        } catch {
+            #Write-Output " - none"
+        }
+        foreach ( $group in $groups ) {
             try {
                 $cx1client.SetShowErrors($false)
-                $access = $cx1client.GetResourceEntityAssignment( $app.id, $targetUser.id )
-                $cx1client.SetShowErrors($true)
-                if ( $access.entityRoles.length -gt 0 ) {
+                $access = $cx1client.GetResourceEntityAssignment( $proj.id, $group.id )  
+                $cx1client.SetShowErrors($true) 
+                if ( $access.entityRoles.length -gt 0 ) {                    
                     foreach ( $role in $access.entityRoles ) {
-                        #Write-Output "`t`t- $role (direct user assignment)"
+                        #Write-Output "`t- $role (assignment through group $($group.name) ($($group.id)))"
                         $temp_roles = @()
                         $roleObj = $cx1client.GetRoleByName($role.Name)
                         $temp_roles += $roleObj
@@ -229,106 +316,21 @@ if ( $newIAM ) {
                         $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
                     }
                 } else {
-                    Write-Output "`t- generic (no role) access assignment to $($app.name) ($($app.id)) for user"
-                }                
+                    Write-Output "`t- generic (no role) access assignment to $($proj.name) ($($proj.id)) through group $($group.name) ($($group.id)))"
+                } 
             } catch {
                 #Write-Output " - none"
-            }
-            foreach ( $group in $groups ) {
-                try {
-                    $cx1client.SetShowErrors($false)
-                    $access = $cx1client.GetResourceEntityAssignment( $app.id, $group.id )  
-                    $cx1client.SetShowErrors($true) 
-                    if ( $access.entityRoles.length -gt 0 ) {
-                        foreach ( $role in $access.entityRoles ) {
-                            #Write-Output "`t- $role (assignment through group $($group.name) ($($group.id)))"
-                            $temp_roles = @()
-                            $roleObj = $cx1client.GetRoleByName($role.Name)
-                            $temp_roles += $roleObj
-                            if ( $roleObj.composite ) {
-                                $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
-                            }
-                            $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
-                        }
-                    } else {
-                        Write-Output "`t- generic (no role) access assignment to $($app.name) ($($app.id)) through group $($group.name) ($($group.id)))"
-                    }  
-                } catch {
-                    #Write-Output " - none"
-                }
-            }
-            if ( $roles.Length -gt 0 ) {
-                Write-Output "`tSpecific application $($app.name) ($($app.id)) permissions:"
-                foreach ( $role in $roles | Sort-Object -Property "name" ) {
-                    Write-Output "`t`t- $($role.name) ($($role.id))"   
-                }
-            } else {
-                Write-Output "`tNo specific application-level permissions."
             }
         }
 
-        Write-Output "`nProject-level assignments for user $($targetUser.username):"
-        $checkedProjects = 0
-        foreach( $proj in $projects ) {
-            $roles = @()
-            $checkedProjects += 1
-            if ( $checkedProjects % 10 -eq 0 ) {
-                Write-Output " - $checkedProjects / $projectCount projects"
+        
+        if ( $roles.Length -gt 0 ) {
+            Write-Output "`tSpecific project $($proj.name) ($($proj.id)) permissions:"
+            foreach ( $role in $roles | Sort-Object -Property "name" ) {
+                Write-Output "`t`t- $($role.name) ($($role.id))"   
             }
-            try {
-                $cx1client.SetShowErrors($false)
-                $access = $cx1client.GetResourceEntityAssignment( $proj.id, $targetUser.id )
-                $cx1client.SetShowErrors($true)
-                if ( $access.entityRoles.length -gt 0 ) {
-                    foreach ( $role in $access.entityRoles ) {
-                        #Write-Output "`t`t- $role (direct user assignment)"
-                        $temp_roles = @()
-                        $roleObj = $cx1client.GetRoleByName($role.Name)
-                        $temp_roles += $roleObj
-                        if ( $roleObj.composite ) {
-                            $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
-                        }
-                        $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
-                    }
-                } else {
-                    Write-Output "`t- generic (no role) access assignment to $($proj.name) ($($proj.id)) for user"
-                }  
-            } catch {
-                #Write-Output " - none"
-            }
-            foreach ( $group in $groups ) {
-                try {
-                    $cx1client.SetShowErrors($false)
-                    $access = $cx1client.GetResourceEntityAssignment( $proj.id, $group.id )  
-                    $cx1client.SetShowErrors($true) 
-                    if ( $access.entityRoles.length -gt 0 ) {                    
-                        foreach ( $role in $access.entityRoles ) {
-                            #Write-Output "`t- $role (assignment through group $($group.name) ($($group.id)))"
-                            $temp_roles = @()
-                            $roleObj = $cx1client.GetRoleByName($role.Name)
-                            $temp_roles += $roleObj
-                            if ( $roleObj.composite ) {
-                                $temp_roles += $cx1client.GetDecomposedRoles($roleObj.id)
-                            }
-                            $roles = $cx1client.MergeRoleArrays( $roles, $temp_roles )
-                        }
-                    } else {
-                        Write-Output "`t- generic (no role) access assignment to $($proj.name) ($($proj.id)) through group $($group.name) ($($group.id)))"
-                    } 
-                } catch {
-                    #Write-Output " - none"
-                }
-            }
-
-            
-            if ( $roles.Length -gt 0 ) {
-                Write-Output "`tSpecific project $($proj.name) ($($proj.id)) permissions:"
-                foreach ( $role in $roles | Sort-Object -Property "name" ) {
-                    Write-Output "`t`t- $($role.name) ($($role.id))"   
-                }
-            } else {
-                Write-Output "`tNo specific project-level permissions."
-            }
+        } else {
+            Write-Output "`tNo specific project-level permissions."
         }
     }
     Write-Output "`n=================================`n"
