@@ -146,7 +146,20 @@ if ( $newIAM ) {
         $cx1client.SetShowErrors($false)
         $assignments = $cx1client.GetResourcesAccessibleToEntity( $targetUser.id )
         $cx1client.SetShowErrors($true)
-        Write-Output "The following access assignments exist for this user: $assignments"
+        
+        if ($assignments.Length -gt 0 ) {
+            Write-Output "The following access assignments exist for this user:"
+            foreach ($assignment in $assignments) {
+                $roles = "no specific roles"
+                if ($assignment.roles.length -gt 0) {
+                    $roles = "roles: $(Join-String $assignment.roles)"
+                }
+                Write-Output "`t$($assignment.type) ID $($assignment.id) with $roles"
+            }
+        } else {
+            Write-Output "No access assignments exist for this user"
+        }
+
     } catch {
         Write-Output "Error getting from /api/access-management/resources-for"
     }
