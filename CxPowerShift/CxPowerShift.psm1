@@ -1228,8 +1228,8 @@ function Get-GroupsFlat() {
     $parent = ""
     foreach ( $part in $split_path ) {
         if ( $part -ne "" ) {
-            $path = "$($parent)/$part"
-            $pgroup = $this.GetGroupByPath( $path )
+            $parent = "$($parent)/$part"
+            $pgroup = $this.GetGroupByPath( $parent )
             if ( $null -ne $pgroup ) {
                 $groups += $pgroup
             }
