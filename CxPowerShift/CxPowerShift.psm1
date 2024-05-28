@@ -233,6 +233,18 @@ function Get-Applications {
     if ( $name -ne "" ) { $params.Add( "name", $name ) }
     return $this.Cx1Get("applications/", $params,  "Failed to get applications" )
 }
+function Get-ApplicationByName {
+    param( [Parameter(Mandatory=$true)][string]$name )
+
+    $apps = $this.GetApplications( 0, 0, $name ).applications
+    foreach ( $app in $apps ) {
+        if ( $app.name -eq $name ) {
+            return $app
+        }
+    }
+    return $null
+}
+
 function Get-ApplicationByID {
     param(
         [Parameter(Mandatory=$true)][string]$ID
@@ -284,6 +296,27 @@ function Get-ProjectByID {
     )
 
     return $this.Cx1Get("projects/$ID", @{},  "Failed to get project with ID $ID" )
+}
+
+function Find-Projects {
+    param(
+        [Parameter(Mandatory=$false)][int]$offset = 0,
+        [Parameter(Mandatory=$false)][int]$limit = 0,
+        [Parameter(Mandatory=$false)][string]$name = "",
+        [Parameter(Mandatory=$false)][array]$groups = @(),
+        [Parameter(Mandatory=$false)][array]$tagKeys = @(),
+        [Parameter(Mandatory=$false)][array]$tagValues = @(),
+        [Parameter(Mandatory=$false)][string]$repo = ""
+    )
+
+    $params = @{}
+    if ( $name -ne "" ) { $params.Add( "name", $name ) }
+    if ( $groups.Length -gt 0 ) { $params.Add( "groups", ($groups -join "," ) ) }
+    if ( $tagKeys.Length -gt 0 ) { $params.Add( "tags-keys", ($tagKeys -join "," ) ) }
+    if ( $tagValues.Length -gt 0 ) { $params.Add( "tags-values", ($tagValues -join "," ) ) }
+    if ( $repo -ne "" ) { $params.Add( "repo-url", $repo ) }
+
+    return $this.Cx1Get("projects", $params, "Failed to get projects matching filter: $params" )
 }
 
 function Remove-Project( $id ) {
@@ -418,18 +451,41 @@ function Get-Results() {
         [Parameter(Mandatory=$false)][int]$limit = 10,
         [Parameter(Mandatory=$false)][array]$severity = @(),
         [Parameter(Mandatory=$false)][array]$state = @(),
-        [Parameter(Mandatory=$false)][array]$status = @()
+        [Parameter(Mandatory=$false)][array]$status = @(),
+        [Parameter(Mandatory=$false)][array]$offset = 0
     )
 
     $params = @{
         "scan-id" =  $scanID
 		"limit" =    $limit
+        "offset" =   $offset
     }
     if ( $state.Length -gt 0 ) { $params.Add( "state", $state ) }
     if ( $severity.Length -gt 0 ) { $params.Add( "severity", $severity ) }
     if ( $status.Length -gt 0 ) { $params.Add( "status", $status ) }
 
     return $this.Cx1Get( "results", $params, "Failed to get results" )
+}
+
+function Get-AllResults() {
+    param(
+        [Parameter(Mandatory=$true)][string]$scanID,
+        [Parameter(Mandatory=$false)][array]$severity = @(),
+        [Parameter(Mandatory=$false)][array]$state = @(),
+        [Parameter(Mandatory=$false)][array]$status = @()
+    )
+
+    $limit = 20
+    $response = $this.GetResults( $scanID, $limit, $severity, $state, $status, 0 )
+    $total = $response.totalCount
+
+    $results = $response.results
+
+    for ( $offset = $1; $offset -lt $total; $offset ++ ) {
+        $response = $this.GetResults( $scanID, $limit, $severity, $state, $status, $offset )
+        $results += $response.results
+    }
+    return $results
 }
 
 function Add-ResultPredicate {
@@ -452,6 +508,33 @@ function Add-ResultPredicate {
     return $this.Cx1Post( "sast-results-predicates/", $body, "failed to add results predicate" )
 }
 
+function Get-SASTResultPredicates {
+    param(
+        [Parameter(Mandatory=$true)][string]$simID,
+        [Parameter(Mandatory=$true)][string]$projectID
+    )
+
+    $params = @{
+        "project-ids" = $projectID
+        "include-comment-json" = $true
+    }
+
+    return $this.Cx1Get( "sast-results-predicates/$simID", $params, "failed to get sast results predicate" )
+}
+
+function Get-KICSResultPredicates {
+    param(
+        [Parameter(Mandatory=$true)][string]$simID,
+        [Parameter(Mandatory=$true)][string]$projectID
+    )
+
+    $params = @{
+        "project-ids" = $projectID
+        "include-comment-json" = $true
+    }
+
+    return $this.Cx1Get( "kics-results-predicates/$simID", $params, "failed to get kics results predicate" )
+}
 function Get-Presets() {
     param(
         [Parameter(Mandatory=$false)][int]$limit = 10,
@@ -917,6 +1000,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
 
         $client | Add-Member ScriptMethod -name "CreateApplication" -Value ${function:New-Application}
         $client | Add-Member ScriptMethod -name "GetApplications" -Value ${function:Get-Applications}
+        $client | Add-Member ScriptMethod -name "GetApplicationByName" -Value ${function:Get-ApplicationByName}
         $client | Add-Member ScriptMethod -name "GetApplicationByID" -Value ${function:Get-ApplicationByID}
         $client | Add-Member ScriptMethod -name "DeleteApplication" -Value ${function:Remove-Application}
         $client | Add-Member ScriptMethod -name "UpdateApplication" -Value ${function:Update-Application}
@@ -924,6 +1008,7 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "CreateProject" -Value ${function:New-Project}
         $client | Add-Member ScriptMethod -name "GetProjects" -Value ${function:Get-Projects}
         $client | Add-Member ScriptMethod -name "GetProjectByID" -Value ${function:Get-ProjectByID}
+        $client | Add-Member ScriptMethod -name "FindProjects" -Value ${function:Find-Projects}
         $client | Add-Member ScriptMethod -name "DeleteProject" -Value ${function:Remove-Project}
         $client | Add-Member ScriptMethod -name "GetProjectConfiguration" -Value ${function:Get-ProjectConfiguration}
         $client | Add-Member ScriptMethod -name "GetPresets" -Value ${function:Get-Presets}
@@ -942,7 +1027,10 @@ function NewCx1Client( $cx1url, $iamurl, $tenant, $apikey, $client_id, $client_s
         $client | Add-Member ScriptMethod -name "GetScanInfo" -Value ${function:Get-ScanInfo}
 
         $client | Add-Member ScriptMethod -name "GetResults" -Value ${function:Get-Results}
+        $client | Add-Member ScriptMethod -name "GetAllResults" -Value ${function:Get-AllResults}
         $client | Add-Member ScriptMethod -name "AddResultPredicate" -Value ${function:Add-ResultPredicate}
+        $client | Add-Member ScriptMethod -name "GetSASTResultPredicates" -Value ${function:Get-SASTResultPredicates}
+        $client | Add-Member ScriptMethod -name "GetKICSResultPredicates" -Value ${function:Get-KICSResultPredicates}
         $client | Add-Member ScriptMethod -name "GetQueries" -Value ${function:Get-Queries}
         $client | Add-Member ScriptMethod -name "GetQuery" -Value ${function:Get-Query}
         $client | Add-Member ScriptMethod -name "DeleteQuery" -Value ${function:Delete-Query}
