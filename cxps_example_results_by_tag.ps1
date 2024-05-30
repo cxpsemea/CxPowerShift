@@ -248,8 +248,14 @@ try {
         $results = $cx1client.GetAllResults( $scan.id )
         if ($debug) { Write-Output "- scan $($scan.id) has $($results.Length) results" }
         foreach ($result in $results) {
-            if ( $includeResultHistory) {
-                if ($debug) { Write-Output "- fetching status changes/comments" }
+            [string]$queryId = $result.data.queryId
+            $result.data.psobject.properties.Remove('queryId')
+            $result.data | Add-Member -NotePropertyName queryId -NotePropertyValue $queryId
+        }
+
+        if ( $includeResultHistory) {
+            if ($debug) { Write-Output "- fetching status changes/comments for project $($scan.projectId) $($scan.projectName)" }
+            foreach ($result in $results) {
                 if ($result.type -eq "sast" ) {
                     $preds = $cx1client.GetSASTResultPredicates( $result.similarityId, $scan.projectId )
                     if ( $preds.predicateHistoryPerProject.Length -gt 0 ) {
@@ -264,9 +270,6 @@ try {
                     }
                 }
             }
-            [string]$queryId = $result.data.queryId
-            $result.data.psobject.properties.Remove('queryId')
-            $result.data | Add-Member -NotePropertyName queryId -NotePropertyValue $queryId
         }
         $scan | Add-Member -NotePropertyName results -NotePropertyValue $results
     }
