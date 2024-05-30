@@ -249,6 +249,7 @@ try {
         if ($debug) { Write-Output "- scan $($scan.id) has $($results.Length) results" }
         foreach ($result in $results) {
             if ( $includeResultHistory) {
+                if ($debug) { Write-Output "- fetching status changes/comments" }
                 if ($result.type -eq "sast" ) {
                     $preds = $cx1client.GetSASTResultPredicates( $result.similarityId, $scan.projectId )
                     if ( $preds.predicateHistoryPerProject.Length -gt 0 ) {
